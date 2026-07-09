@@ -364,6 +364,30 @@
                 progressFill.style.width = '55%';
                 progressFill.innerText = '55%';
                 
+                // ===== 方案二：添加调试信息 =====
+                console.log('KML 文件大小:', kmlText.length, '字符');
+                console.log('KML 前200字符:', kmlText.substring(0, 200));
+                
+                // 检查是否包含 Placemark
+                const hasPlacemark = kmlText.includes('Placemark');
+                console.log('是否包含 Placemark:', hasPlacemark);
+                
+                // 检查是否包含 coordinates
+                const hasCoordinates = kmlText.includes('coordinates');
+                console.log('是否包含 coordinates:', hasCoordinates);
+                
+                // 检查是否包含 Polygon
+                const hasPolygon = kmlText.includes('Polygon');
+                console.log('是否包含 Polygon:', hasPolygon);
+                
+                // 检查是否包含 Point
+                const hasPoint = kmlText.includes('Point');
+                console.log('是否包含 Point:', hasPoint);
+                
+                // 检查是否包含 LineString
+                const hasLineString = kmlText.includes('LineString');
+                console.log('是否包含 LineString:', hasLineString);
+                
                 const format = new ol.format.KML({
                     extractStyles: true
                 });
@@ -371,6 +395,33 @@
                 const features = format.readFeatures(kmlText, {
                     featureProjection: 'EPSG:4326'
                 });
+                
+                console.log('解析出的要素数量:', features.length);
+                
+                // 如果要素为0，尝试用 XML 解析
+                if (features.length === 0) {
+                    console.log('⚠️ 未解析出任何要素，尝试 XML 解析...');
+                    try {
+                        const parser = new DOMParser();
+                        const xmlDoc = parser.parseFromString(kmlText, 'text/xml');
+                        const placemarks = xmlDoc.getElementsByTagName('Placemark');
+                        console.log('XML 中 Placemark 数量:', placemarks.length);
+                        
+                        // 打印第一个 Placemark 的内容
+                        if (placemarks.length > 0) {
+                            console.log('第一个 Placemark 内容:', placemarks[0].outerHTML.substring(0, 500));
+                        }
+                    } catch(e) {
+                        console.error('XML解析失败:', e);
+                    }
+                }
+                
+                // 如果有要素，继续处理
+                if (features.length === 0) {
+                    statusDiv.innerText = '❌ 未解析到任何要素，请检查KML文件格式';
+                    progressBar.style.display = 'none';
+                    return;
+                }
                 
                 features.forEach(function(feature) {
                     const geom = feature.getGeometry();
@@ -408,8 +459,15 @@
                         }, 3000);
                         
                         const extent = vectorLayer.getSource().getExtent();
-                        if (extent && !isNaN(extent[0]) && !isNaN(extent[1])) {
+                        if (extent && !isNaN(extent[0]) && !isNaN(extent[1]) && 
+                            extent[0] !== Infinity && extent[1] !== Infinity) {
                             map.getView().fit(extent, { padding: [50, 50, 50, 50] });
+                        } else {
+                            // 如果 extent 无效，使用默认中心
+                            const defaultCenter = fromLonLat(108.94, 34.34);
+                            map.getView().setCenter(defaultCenter);
+                            map.getView().setZoom(10);
+                            statusDiv.innerText = `⚠️ 要素加载完成，但无法自动定位，请手动缩放`;
                         }
                     }
                 }
