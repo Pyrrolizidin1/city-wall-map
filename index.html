@@ -5,6 +5,8 @@
     <title>古城墙数据集 - 关灯模式</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css" />
     <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
+    <!-- 引入 JSZip 库用于解压 KMZ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         body, html {
             margin: 0;
@@ -322,6 +324,88 @@
         });
         map.addLayer(vectorLayer);
         
+        // ========== 解析KML的核心函数 ==========
+        function parseKMLAndAddFeatures(kmlContent) {
+            console.log('开始解析KML，内容长度:', kmlContent.length);
+            
+            const format = new ol.format.KML({
+                extractStyles: true
+            });
+            
+            const features = format.readFeatures(kmlContent, {
+                featureProjection: 'EPSG:4326'
+            });
+            
+            console.log('解析出的要素数量:', features.length);
+            
+            if (features.length === 0) {
+                // 尝试用 XML 解析检查
+                try {
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(kmlContent, 'text/xml');
+                    const placemarks = xmlDoc.getElementsByTagName('Placemark');
+                    console.log('XML 中 Placemark 数量:', placemarks.length);
+                } catch(e) {
+                    console.error('XML解析失败:', e);
+                }
+                statusDiv.innerText = '❌ 未解析到任何要素，请检查KML文件格式';
+                progressBar.style.display = 'none';
+                return;
+            }
+            
+            // 坐标转换
+            features.forEach(function(feature) {
+                const geom = feature.getGeometry();
+                if (geom) {
+                    let coords = geom.getCoordinates();
+                    const newCoords = convertCoordsRecursive(coords);
+                    geom.setCoordinates(newCoords);
+                }
+            });
+            
+            const totalCount = features.length;
+            statusDiv.innerText = `共 ${totalCount} 个要素，正在分批添加...`;
+            console.log(`解析完成，共 ${totalCount} 个要素`);
+            
+            let addedCount = 0;
+            const batchSize = 200;
+            
+            function addBatch() {
+                const end = Math.min(addedCount + batchSize, totalCount);
+                const batch = features.slice(addedCount, end);
+                vectorLayer.getSource().addFeatures(batch);
+                addedCount = end;
+                
+                const percent = 55 + Math.round((addedCount / totalCount) * 45);
+                progressFill.style.width = percent + '%';
+                progressFill.innerText = percent + '%';
+                statusDiv.innerText = `已添加 ${addedCount} / ${totalCount} 个要素`;
+                
+                if (addedCount < totalCount) {
+                    setTimeout(addBatch, 50);
+                } else {
+                    statusDiv.innerText = `✅ 加载完成！共 ${totalCount} 个要素`;
+                    setTimeout(() => {
+                        progressBar.style.display = 'none';
+                    }, 3000);
+                    
+                    const extent = vectorLayer.getSource().getExtent();
+                    if (extent && !isNaN(extent[0]) && !isNaN(extent[1]) && 
+                        extent[0] !== Infinity && extent[1] !== Infinity) {
+                        map.getView().fit(extent, { padding: [50, 50, 50, 50] });
+                    } else {
+                        const defaultCenter = fromLonLat(108.94, 34.34);
+                        map.getView().setCenter(defaultCenter);
+                        map.getView().setZoom(10);
+                        statusDiv.innerText = `⚠️ 要素加载完成，但无法自动定位，请手动缩放`;
+                    }
+                }
+            }
+            
+            setTimeout(addBatch, 100);
+        }
+        
+        // ========== 加载数据文件 ==========
         fetch(KML_FILE)
             .then(response => {
                 if (!response.ok) {
@@ -330,7 +414,7 @@
                 const contentLength = response.headers.get('content-length');
                 let loaded = 0;
                 
-                statusDiv.innerText = '正在下载KML文件...';
+                statusDiv.innerText = '正在下载数据文件...';
                 progressBar.style.display = 'block';
                 progressFill.style.width = '5%';
                 progressFill.innerText = '5%';
@@ -356,123 +440,68 @@
                 
                 return readStream().then(chunks => {
                     const blob = new Blob(chunks);
-                    return blob.text();
+                    return blob.arrayBuffer();
                 });
             })
-            .then(kmlText => {
-                statusDiv.innerText = '正在解析KML文件...';
+            .then(arrayBuffer => {
+                statusDiv.innerText = '正在解析数据文件...';
                 progressFill.style.width = '55%';
                 progressFill.innerText = '55%';
                 
-                // ===== 方案二：添加调试信息 =====
-                console.log('KML 文件大小:', kmlText.length, '字符');
-                console.log('KML 前200字符:', kmlText.substring(0, 200));
+                // 检测是否为 KMZ（ZIP 文件）
+                const uint8Array = new Uint8Array(arrayBuffer);
+                const isKMZ = uint8Array[0] === 0x50 && uint8Array[1] === 0x4B; // 'PK'
+                const isKML = !isKMZ;
                 
-                // 检查是否包含 Placemark
-                const hasPlacemark = kmlText.includes('Placemark');
-                console.log('是否包含 Placemark:', hasPlacemark);
+                console.log('文件类型检测 - isKMZ:', isKMZ);
                 
-                // 检查是否包含 coordinates
-                const hasCoordinates = kmlText.includes('coordinates');
-                console.log('是否包含 coordinates:', hasCoordinates);
-                
-                // 检查是否包含 Polygon
-                const hasPolygon = kmlText.includes('Polygon');
-                console.log('是否包含 Polygon:', hasPolygon);
-                
-                // 检查是否包含 Point
-                const hasPoint = kmlText.includes('Point');
-                console.log('是否包含 Point:', hasPoint);
-                
-                // 检查是否包含 LineString
-                const hasLineString = kmlText.includes('LineString');
-                console.log('是否包含 LineString:', hasLineString);
-                
-                const format = new ol.format.KML({
-                    extractStyles: true
-                });
-                
-                const features = format.readFeatures(kmlText, {
-                    featureProjection: 'EPSG:4326'
-                });
-                
-                console.log('解析出的要素数量:', features.length);
-                
-                // 如果要素为0，尝试用 XML 解析
-                if (features.length === 0) {
-                    console.log('⚠️ 未解析出任何要素，尝试 XML 解析...');
-                    try {
-                        const parser = new DOMParser();
-                        const xmlDoc = parser.parseFromString(kmlText, 'text/xml');
-                        const placemarks = xmlDoc.getElementsByTagName('Placemark');
-                        console.log('XML 中 Placemark 数量:', placemarks.length);
+                if (isKMZ) {
+                    console.log('检测到 KMZ 格式，正在解压...');
+                    // 使用 JSZip 解压
+                    JSZip.loadAsync(arrayBuffer).then(function(zip) {
+                        // 查找 KML 文件
+                        let kmlFile = null;
+                        let kmlFileName = null;
                         
-                        // 打印第一个 Placemark 的内容
-                        if (placemarks.length > 0) {
-                            console.log('第一个 Placemark 内容:', placemarks[0].outerHTML.substring(0, 500));
-                        }
-                    } catch(e) {
-                        console.error('XML解析失败:', e);
-                    }
-                }
-                
-                // 如果有要素，继续处理
-                if (features.length === 0) {
-                    statusDiv.innerText = '❌ 未解析到任何要素，请检查KML文件格式';
-                    progressBar.style.display = 'none';
-                    return;
-                }
-                
-                features.forEach(function(feature) {
-                    const geom = feature.getGeometry();
-                    if (geom) {
-                        let coords = geom.getCoordinates();
-                        const newCoords = convertCoordsRecursive(coords);
-                        geom.setCoordinates(newCoords);
-                    }
-                });
-                
-                const totalCount = features.length;
-                statusDiv.innerText = `共 ${totalCount} 个要素，正在分批添加...`;
-                console.log(`解析完成，共 ${totalCount} 个要素`);
-                
-                let addedCount = 0;
-                const batchSize = 200;
-                
-                function addBatch() {
-                    const end = Math.min(addedCount + batchSize, totalCount);
-                    const batch = features.slice(addedCount, end);
-                    vectorLayer.getSource().addFeatures(batch);
-                    addedCount = end;
-                    
-                    const percent = 55 + Math.round((addedCount / totalCount) * 45);
-                    progressFill.style.width = percent + '%';
-                    progressFill.innerText = percent + '%';
-                    statusDiv.innerText = `已添加 ${addedCount} / ${totalCount} 个要素`;
-                    
-                    if (addedCount < totalCount) {
-                        setTimeout(addBatch, 50);
-                    } else {
-                        statusDiv.innerText = `✅ 加载完成！共 ${totalCount} 个要素`;
-                        setTimeout(() => {
-                            progressBar.style.display = 'none';
-                        }, 3000);
+                        zip.forEach(function(path, file) {
+                            if (path.toLowerCase().endsWith('.kml')) {
+                                kmlFile = file;
+                                kmlFileName = path;
+                            }
+                        });
                         
-                        const extent = vectorLayer.getSource().getExtent();
-                        if (extent && !isNaN(extent[0]) && !isNaN(extent[1]) && 
-                            extent[0] !== Infinity && extent[1] !== Infinity) {
-                            map.getView().fit(extent, { padding: [50, 50, 50, 50] });
+                        if (kmlFile) {
+                            console.log('找到 KML 文件:', kmlFileName);
+                            kmlFile.async('text').then(function(kmlContent) {
+                                console.log('解压成功，KML 大小:', kmlContent.length);
+                                parseKMLAndAddFeatures(kmlContent);
+                            });
                         } else {
-                            // 如果 extent 无效，使用默认中心
-                            const defaultCenter = fromLonLat(108.94, 34.34);
-                            map.getView().setCenter(defaultCenter);
-                            map.getView().setZoom(10);
-                            statusDiv.innerText = `⚠️ 要素加载完成，但无法自动定位，请手动缩放`;
+                            // 如果找不到 .kml 文件，尝试找第一个文件
+                            const firstFile = Object.values(zip.files)[0];
+                            if (firstFile && !firstFile.dir) {
+                                firstFile.async('text').then(function(content) {
+                                    console.log('未找到 .kml 文件，尝试读取第一个文件');
+                                    parseKMLAndAddFeatures(content);
+                                });
+                            } else {
+                                statusDiv.innerText = '❌ KMZ 中未找到 KML 文件';
+                                progressBar.style.display = 'none';
+                                console.error('KMZ 中未找到任何 KML 文件');
+                            }
                         }
-                    }
+                    }).catch(function(error) {
+                        console.error('解压 KMZ 失败:', error);
+                        statusDiv.innerText = '❌ KMZ 解压失败: ' + error.message;
+                        progressBar.style.display = 'none';
+                    });
+                } else {
+                    // 直接作为 KML 解析
+                    const decoder = new TextDecoder('utf-8');
+                    const kmlContent = decoder.decode(arrayBuffer);
+                    console.log('检测到 KML 格式，直接解析');
+                    parseKMLAndAddFeatures(kmlContent);
                 }
-                
-                setTimeout(addBatch, 100);
             })
             .catch(error => {
                 console.error('加载失败:', error);
