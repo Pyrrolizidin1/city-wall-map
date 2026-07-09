@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>古城墙数据集 - 关灯模式</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css" />
+    <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        /* 加载进度条样式 */
+        #progress-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            height: 30px;
+            background: rgba(0,0,0,0.7);
+            border-radius: 15px;
+            z-index: 1000;
+            display: none;
+        }
+        #progress-fill {
+            height: 100%;
+            background: #4CAF50;
+            border-radius: 15px;
+            width: 0%;
+            transition: width 0.3s;
+            line-height: 30px;
+            color: white;
+            text-align: center;
+            font-size: 14px;
+        }
+        #status {
+            position: fixed;
+            bottom: 60px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 1000;
+            font-family: monospace;
+        }
+        
+        /* ========== 关灯模式按钮 ========== */
+        #light-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1100;
+            padding: 10px 18px;
+            background: rgba(30, 30, 30, 0.85);
+            color: #f0f0f0;
+            border: 1px solid #555;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+            backdrop-filter: blur(4px);
+            transition: all 0.2s ease;
+            letter-spacing: 0.5px;
+        }
+        #light-toggle:hover {
+            background: rgba(60, 60, 60, 0.95);
+            border-color: #aaa;
+            transform: scale(1.02);
+        }
+        #light-toggle.dark-mode {
+            background: rgba(200, 180, 100, 0.9);
+            color: #1a1a1a;
+            border-color: #cbb77a;
+        }
+        #light-toggle.dark-mode:hover {
+            background: rgba(220, 200, 120, 0.95);
+        }
+
+        /* ========== 优化后的弹窗样式 ========== */
+        .ol-popup {
+            position: absolute;
+            background-color: white;
+            box-shadow: 0 3px 15px rgba(0,0,0,0.3);
+            border-radius: 10px;
+            border: 1px solid #ccc;
+            bottom: 12px;
+            left: -50px;
+            min-width: 260px;
+            max-width: 400px;
+            max-height: 400px;
+            z-index: 10;
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+        .ol-popup:after, .ol-popup:before {
+            top: 100%;
+            border: solid transparent;
+            content: " ";
+            height: 0;
+            width: 0;
+            position: absolute;
+            pointer-events: none;
+        }
+        .ol-popup:after {
+            border-top-color: white;
+            border-width: 10px;
+            left: 48px;
+            margin-left: -10px;
+        }
+        .ol-popup:before {
+            border-top-color: #ccc;
+            border-width: 11px;
+            left: 48px;
+            margin-left: -11px;
+        }
+        
+        .popup-header {
+            background: #f5f5f5;
+            padding: 10px 15px;
+            border-bottom: 1px solid #ddd;
+            position: relative;
+            cursor: move;
+        }
+        .popup-title {
+            font-weight: bold;
+            font-size: 15px;
+            color: #333;
+            padding-right: 25px;
+            word-break: break-word;
+        }
+        .popup-closer {
+            text-decoration: none;
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #999;
+            line-height: 1;
+        }
+        .popup-closer:hover {
+            color: #333;
+            cursor: pointer;
+        }
+        
+        .popup-content-wrapper {
+            padding: 12px 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            background: white;
+        }
+        .popup-content {
+            font-size: 13px;
+            line-height: 1.6;
+            color: #444;
+            word-wrap: break-word;
+            white-space: normal;
+        }
+        .popup-content p {
+            margin: 0 0 8px 0;
+        }
+        .popup-content br {
+            display: block;
+            content: "";
+            margin: 4px 0;
+        }
+        .popup-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 8px 0;
+            font-size: 12px;
+        }
+        .popup-content th, .popup-content td {
+            border: 1px solid #ddd;
+            padding: 5px;
+            text-align: left;
+        }
+        .popup-content th {
+            background-color: #f5f5f5;
+        }
+        .popup-content ul, .popup-content ol {
+            margin: 5px 0;
+            padding-left: 20px;
+        }
+        .popup-content img {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .popup-content-wrapper::-webkit-scrollbar {
+            width: 6px;
+        }
+        .popup-content-wrapper::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        .popup-content-wrapper::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        .popup-content-wrapper::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="progress-bar"><div id="progress-fill">0%</div></div>
+    <div id="status">准备加载数据...</div>
+    <button id="light-toggle">🌙 关灯</button>
+
+    <script>
+        // 在文件最开头，所有代码之前添加
+        ol.proj.useGeographic();
+        // ========== 配置区域 ==========
+        const KML_FILE = '城址-20260531.kml';
+        
+        // ========== WGS-84 转 GCJ-02 加密算法（解决高德火星坐标偏移）==========
+        const a = 6378245.0;
+        const ee = 0.00669342162296594323;
+
+        function transformLat(x, y) {
+            let ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+            ret += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
+            ret += (20.0 * Math.sin(y * Math.PI) + 40.0 * Math.sin(y / 3.0 * Math.PI)) * 2.0 / 3.0;
+            ret += (160.0 * Math.sin(y / 12.0 * Math.PI) + 320 * Math.sin(y * Math.PI / 30.0)) * 2.0 / 3.0;
+            return ret;
+        }
+
+        function transformLon(x, y) {
+            let ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+            ret += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
+            ret += (20.0 * Math.sin(x * Math.PI) + 40.0 * Math.sin(x / 3.0 * Math.PI)) * 2.0 / 3.0;
+            ret += (150.0 * Math.sin(x / 12.0 * Math.PI) + 300.0 * Math.sin(x / 30.0 * Math.PI)) * 2.0 / 3.0;
+            return ret;
+        }
+
+        function wgs84ToGcj02(lon, lat) {
+            if (outOfChina(lon, lat)) {
+                return [lon, lat];
+            }
+            let dLat = transformLat(lon - 105.0, lat - 35.0);
+            let dLon = transformLon(lon - 105.0, lat - 35.0);
+            let radLat = lat / 180.0 * Math.PI;
+            let magic = Math.sin(radLat);
+            magic = 1 - ee * magic * magic;
+            let sqrtMagic = Math.sqrt(magic);
+            dLat = (dLat * 180.0) / ((a * (1 - ee)) / (magic * sqrtMagic) * Math.PI);
+            dLon = (dLon * 180.0) / (a / sqrtMagic * Math.cos(radLat) * Math.PI);
+            let mgLat = lat + dLat;
+            let mgLon = lon + dLon;
+            return [mgLon, mgLat];
+        }
+
+        function outOfChina(lon, lat) {
+            return lon < 72.004 || lon > 137.8347 || lat < 0.8293 || lat > 55.8271;
+        }
+
+        // 辅助递归函数：遍历多层坐标数组进行转换
+        function convertCoordsRecursive(coordArray) {
+            if (Array.isArray(coordArray) && coordArray.length > 0 && typeof coordArray[0] === 'number') {
+                const lon = coordArray[0];
+                const lat = coordArray[1];
+                const gcj = wgs84ToGcj02(lon, lat);
+                if (coordArray.length === 3) {
+                    return [gcj[0], gcj[1], coordArray[2]];
+                }
+                return gcj;
+            } else if (Array.isArray(coordArray)) {
+                return coordArray.map(item => convertCoordsRecursive(item));
+            } else {
+                return coordArray;
+            }
+        }
+        
+        // 辅助函数：经纬度转墨卡托投影坐标
+        function fromLonLat(lon, lat) {
+            const x = (lon * 20037508.34) / 180;
+            const y = Math.log(Math.tan(((90 + lat) * Math.PI) / 360)) / (Math.PI / 180);
+            const yMercator = (y * 20037508.34) / 180;
+            return [x, yMercator];
+        }
+        
+        // ========== 高德底图 ==========
+        const gaodeLayer = new ol.layer.Tile({
+            source: new ol.source.XYZ({
+                url: 'https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+                attributions: '© 高德地图'
+            })
+        });
+        
+        // ========== 初始化地图 ==========
+        const defaultCenter = fromLonLat(108.94, 34.34);
+        
+        const map = new ol.Map({
+            target: 'map',
+            layers: [gaodeLayer],
+            view: new ol.View({
+                center: defaultCenter,
+                zoom: 10
+            })
+        });
+        
+        // ========== 分批加载KML ==========
+        const statusDiv = document.getElementById('status');
+        const progressBar = document.getElementById('progress-bar');
+        const progressFill = document.getElementById('progress-fill');
+        
+        const vectorLayer = new ol.layer.Vector({
+            source: new ol.source.Vector(),
+            style: null
+        });
+        map.addLayer(vectorLayer);
+        
+        fetch(KML_FILE)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`文件不存在或无法访问 (HTTP ${response.status})`);
+                }
+                const contentLength = response.headers.get('content-length');
+                let loaded = 0;
+                
+                statusDiv.innerText = '正在下载KML文件...';
+                progressBar.style.display = 'block';
+                progressFill.style.width = '5%';
+                progressFill.innerText = '5%';
+                
+                const reader = response.body.getReader();
+                const chunks = [];
+                
+                function readStream() {
+                    return reader.read().then(({done, value}) => {
+                        if (done) {
+                            return chunks;
+                        }
+                        chunks.push(value);
+                        loaded += value.length;
+                        if (contentLength) {
+                            const percent = Math.min(50, Math.round((loaded / contentLength) * 50));
+                            progressFill.style.width = percent + '%';
+                            progressFill.innerText = percent + '%';
+                        }
+                        return readStream();
+                    });
+                }
+                
+                return readStream().then(chunks => {
+                    const blob = new Blob(chunks);
+                    return blob.text();
+                });
+            })
+            .then(kmlText => {
+                statusDiv.innerText = '正在解析KML文件...';
+                progressFill.style.width = '55%';
+                progressFill.innerText = '55%';
+                
+                const format = new ol.format.KML({
+                    extractStyles: true
+                });
+                
+                const features = format.readFeatures(kmlText, {
+                    featureProjection: 'EPSG:4326'
+                });
+                
+                features.forEach(function(feature) {
+                    const geom = feature.getGeometry();
+                    if (geom) {
+                        let coords = geom.getCoordinates();
+                        const newCoords = convertCoordsRecursive(coords);
+                        geom.setCoordinates(newCoords);
+                    }
+                });
+                
+                const totalCount = features.length;
+                statusDiv.innerText = `共 ${totalCount} 个要素，正在分批添加...`;
+                console.log(`解析完成，共 ${totalCount} 个要素`);
+                
+                let addedCount = 0;
+                const batchSize = 200;
+                
+                function addBatch() {
+                    const end = Math.min(addedCount + batchSize, totalCount);
+                    const batch = features.slice(addedCount, end);
+                    vectorLayer.getSource().addFeatures(batch);
+                    addedCount = end;
+                    
+                    const percent = 55 + Math.round((addedCount / totalCount) * 45);
+                    progressFill.style.width = percent + '%';
+                    progressFill.innerText = percent + '%';
+                    statusDiv.innerText = `已添加 ${addedCount} / ${totalCount} 个要素`;
+                    
+                    if (addedCount < totalCount) {
+                        setTimeout(addBatch, 50);
+                    } else {
+                        statusDiv.innerText = `✅ 加载完成！共 ${totalCount} 个要素`;
+                        setTimeout(() => {
+                            progressBar.style.display = 'none';
+                        }, 3000);
+                        
+                        const extent = vectorLayer.getSource().getExtent();
+                        if (extent && !isNaN(extent[0]) && !isNaN(extent[1])) {
+                            map.getView().fit(extent, { padding: [50, 50, 50, 50] });
+                        }
+                    }
+                }
+                
+                setTimeout(addBatch, 100);
+            })
+            .catch(error => {
+                console.error('加载失败:', error);
+                statusDiv.innerText = `❌ 加载失败: ${error.message}`;
+                progressBar.style.display = 'none';
+            });
+        
+        // ========== 优化后的弹窗（支持HTML和滚动）==========
+        const popupElement = document.createElement('div');
+        popupElement.className = 'ol-popup';
+        popupElement.innerHTML = `
+            <div class="popup-header">
+                <div class="popup-title"></div>
+                <a href="#" class="popup-closer">×</a>
+            </div>
+            <div class="popup-content-wrapper">
+                <div class="popup-content"></div>
+            </div>
+        `;
+        
+        const popup = new ol.Overlay({
+            element: popupElement,
+            positioning: 'bottom-center',
+            offset: [0, -10],
+            stopEvent: false
+        });
+        map.addOverlay(popup);
+        
+        popupElement.querySelector('.popup-closer').onclick = function() {
+            popup.setPosition(undefined);
+            return false;
+        };
+        
+        function sanitizeAndRenderHTML(content) {
+            if (!content) return '（无描述信息）';
+            
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = content;
+            
+            const scripts = tempDiv.querySelectorAll('script');
+            scripts.forEach(script => script.remove());
+            
+            let html = tempDiv.innerHTML;
+            if (!/<[^>]+>/.test(html)) {
+                html = html.replace(/\n/g, '<br>').replace(/\s\s/g, ' &nbsp;');
+            }
+            
+            return html || '（无描述信息）';
+        }
+        
+        map.on('click', function(event) {
+            let featureFound = false;
+            
+            map.forEachFeatureAtPixel(event.pixel, function(feature, layer) {
+                if (layer === vectorLayer) {
+                    let name = feature.get('name') || feature.get('Name') || '（无标题）';
+                    let description = feature.get('description') || feature.get('Description') || '';
+                    
+                    const renderedHtml = sanitizeAndRenderHTML(description);
+                    
+                    popupElement.querySelector('.popup-title').innerHTML = name;
+                    popupElement.querySelector('.popup-content').innerHTML = renderedHtml;
+                    popup.setPosition(event.coordinate);
+                    featureFound = true;
+                    return true;
+                }
+            });
+            
+            if (!featureFound) {
+                popup.setPosition(undefined);
+            }
+        });
+        
+        map.on('pointermove', function(event) {
+            const hasFeature = map.hasFeatureAtPixel(event.pixel, {
+                layerFilter: (layer) => layer === vectorLayer
+            });
+            map.getTargetElement().style.cursor = hasFeature ? 'pointer' : '';
+        });
+        
+        // ========== 关灯模式实现（黑色阴影） ==========
+        const toggleBtn = document.getElementById('light-toggle');
+        let darkMode = false;
+        
+        // 创建一个Canvas绘制纯黑色半透明瓦片
+        function createBlackTile() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            // 纯黑色，alpha = 180 (约70%不透明度)
+            ctx.fillStyle = 'rgba(0, 0, 0, 180)';
+            ctx.fillRect(0, 0, 256, 256);
+            return canvas;
+        }
+
+        const blackTileCanvas = createBlackTile();
+        const blackTileDataUrl = blackTileCanvas.toDataURL('image/png');
+
+        // 创建阴影图层
+        const shadowLayer = new ol.layer.Tile({
+            source: new ol.source.TileImage({
+                tileUrlFunction: function(tileCoord, pixelRatio, projection) {
+                    return blackTileDataUrl;
+                },
+                tilePixelRatio: 1,
+                projection: 'EPSG:3857',
+                tileGrid: new ol.tilegrid.TileGrid({
+                    extent: [-20037508.34, -20037508.34, 20037508.34, 20037508.34],
+                    origin: [-20037508.34, 20037508.34],
+                    resolutions: [156543.03392804097, 78271.51696402048, 39135.75848201024, 19567.87924100512, 9783.93962050256, 4891.96981025128, 2445.98490512564, 1222.99245256282, 611.49622628141, 305.748113140705, 152.8740565703525, 76.43702828517625, 38.21851414258813, 19.109257071294063, 9.554628535647032, 4.777314267823516, 2.388657133911758, 1.194328566955879, 0.5971642834779395, 0.29858214173896974]
+                })
+            }),
+            opacity: 1.0,
+            visible: false,
+            zIndex: 1
+        });
+        map.addLayer(shadowLayer);
+        
+        // 确保矢量图层在阴影之上
+        vectorLayer.setZIndex(2);
+        
+        toggleBtn.addEventListener('click', function() {
+            darkMode = !darkMode;
+            shadowLayer.setVisible(darkMode);
+            
+            if (darkMode) {
+                toggleBtn.innerHTML = '☀️ 开灯';
+                toggleBtn.classList.add('dark-mode');
+                gaodeLayer.setOpacity(0.4);
+            } else {
+                toggleBtn.innerHTML = '🌙 关灯';
+                toggleBtn.classList.remove('dark-mode');
+                gaodeLayer.setOpacity(1.0);
+            }
+        });
+        
+        console.log('地图初始化完成，等待加载KML...');
+        console.log('KML文件路径:', KML_FILE);
+    </script>
+</body>
+</html>
