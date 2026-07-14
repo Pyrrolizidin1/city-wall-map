@@ -2,645 +2,413 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>古城墙数据集 - 关灯模式</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css" />
-    <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
-    <!-- 引入 JSZip 库用于解压 KMZ -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>城墙城址数据集 · 舆图始页</title>
     <style>
-        body, html {
+        * {
             margin: 0;
             padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
+            box-sizing: border-box;
         }
-        #map {
-            width: 100%;
-            height: 100%;
-        }
-        /* 加载进度条样式 */
-        #progress-bar {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            right: 20px;
-            height: 30px;
-            background: rgba(0,0,0,0.7);
-            border-radius: 15px;
-            z-index: 1000;
-            display: none;
-        }
-        #progress-fill {
-            height: 100%;
-            background: #4CAF50;
-            border-radius: 15px;
-            width: 0%;
-            transition: width 0.3s;
-            line-height: 30px;
-            color: white;
-            text-align: center;
-            font-size: 14px;
-        }
-        #status {
-            position: fixed;
-            bottom: 60px;
-            left: 20px;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 12px;
-            z-index: 1000;
-            font-family: monospace;
-        }
-        
-        /* ========== 关灯模式按钮 ========== */
-        #light-toggle {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1100;
-            padding: 10px 18px;
-            background: rgba(30, 30, 30, 0.85);
-            color: #f0f0f0;
-            border: 1px solid #555;
-            border-radius: 30px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.4);
-            backdrop-filter: blur(4px);
-            transition: all 0.2s ease;
-            letter-spacing: 0.5px;
-        }
-        #light-toggle:hover {
-            background: rgba(60, 60, 60, 0.95);
-            border-color: #aaa;
-            transform: scale(1.02);
-        }
-        #light-toggle.dark-mode {
-            background: rgba(200, 180, 100, 0.9);
-            color: #1a1a1a;
-            border-color: #cbb77a;
-        }
-        #light-toggle.dark-mode:hover {
-            background: rgba(220, 200, 120, 0.95);
+        body {
+            background: #f2efe8;
+            font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Times New Roman', serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 30px 20px;
         }
 
-        /* ========== 优化后的弹窗样式 ========== */
-        .ol-popup {
-            position: absolute;
-            background-color: white;
-            box-shadow: 0 3px 15px rgba(0,0,0,0.3);
-            border-radius: 10px;
-            border: 1px solid #ccc;
-            bottom: 12px;
-            left: -50px;
-            min-width: 260px;
-            max-width: 400px;
-            max-height: 400px;
-            z-index: 10;
-            overflow: hidden;
-            transition: all 0.2s ease;
+        .scroll-card {
+            max-width: 1100px;
+            width: 100%;
+            background: #fcf9f2;
+            background-image: 
+                linear-gradient(rgba(200, 180, 150, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(200, 180, 150, 0.08) 1px, transparent 1px);
+            background-size: 28px 28px;
+            padding: 40px 48px 48px 48px;
+            border-radius: 32px 12px 32px 12px;
+            box-shadow: 0 24px 48px -16px rgba(0,0,0,0.5), inset 0 1px 0 #fffef7, 0 0 0 1px #d8cfc0;
+            border: 1px solid #ede6d8;
+            transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+            animation: fadeUp 0.9s ease forwards;
         }
-        .ol-popup:after, .ol-popup:before {
-            top: 100%;
-            border: solid transparent;
-            content: " ";
-            height: 0;
-            width: 0;
-            position: absolute;
-            pointer-events: none;
+        @keyframes fadeUp {
+            0% { opacity: 0; transform: translateY(24px); }
+            100% { opacity: 1; transform: translateY(0); }
         }
-        .ol-popup:after {
-            border-top-color: white;
-            border-width: 10px;
-            left: 48px;
-            margin-left: -10px;
-        }
-        .ol-popup:before {
-            border-top-color: #ccc;
-            border-width: 11px;
-            left: 48px;
-            margin-left: -11px;
-        }
-        
-        .popup-header {
-            background: #f5f5f5;
-            padding: 10px 15px;
-            border-bottom: 1px solid #ddd;
+
+        /* 标题区 */
+        .title-block {
+            text-align: center;
+            border-bottom: 2px solid #d3c9b8;
+            padding-bottom: 20px;
+            margin-bottom: 28px;
             position: relative;
-            cursor: move;
         }
-        .popup-title {
-            font-weight: bold;
-            font-size: 15px;
-            color: #333;
-            padding-right: 25px;
-            word-break: break-word;
-        }
-        .popup-closer {
-            text-decoration: none;
+        .title-block::after {
+            content: "◆";
             position: absolute;
-            top: 8px;
-            right: 12px;
+            bottom: -14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #fcf9f2;
+            padding: 0 14px;
+            color: #b8aa92;
+            font-size: 18px;
+        }
+        h1 {
+            font-size: 34px;
+            font-weight: 700;
+            letter-spacing: 4px;
+            color: #3a3228;
+            text-shadow: 1px 1px 0 rgba(255,245,230,0.5);
+        }
+        .subhead {
             font-size: 20px;
-            font-weight: bold;
-            color: #999;
-            line-height: 1;
+            color: #7a6c5a;
+            letter-spacing: 4px;
+            margin-top: 6px;
+            font-weight: 400;
         }
-        .popup-closer:hover {
-            color: #333;
-            cursor: pointer;
+
+        /* 作者 + 协助网格 */
+        .meta-grid {
+            display: grid;
+            grid-template-columns: 1fr 2.2fr;
+            gap: 12px 20px;
+            background: #f5f0e7;
+            padding: 16px 22px;
+            border-radius: 40px 8px 40px 8px;
+            margin-bottom: 28px;
+            border-left: 5px solid #bbaa92;
+            box-shadow: inset 0 0 0 1px #e6ded2;
+            font-size: 14.5px;
+            line-height: 1.7;
+            color: #3d352a;
         }
-        
-        .popup-content-wrapper {
-            padding: 12px 15px;
+        .meta-grid .author {
+            font-weight: 600;
+            color: #2b241c;
+        }
+        .meta-grid .helper-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0 18px;
+            font-size: 13.8px;
+        }
+        .helper-grid span {
+            display: inline-block;
+            padding: 0 2px;
+        }
+        .helper-grid .name {
+            font-weight: 700;
+            color: #3d352a;
+        }
+        .helper-grid .desc {
+            color: #5f5240;
+            font-size: 13px;
+        }
+        .meta-grid strong {
+            color: #2f281e;
+        }
+
+        /* 图例 —— 两列 + 不透明度小注 */
+        .legend-wrap {
+            background: #f8f4eb;
+            padding: 18px 22px 12px 22px;
+            border-radius: 18px;
+            margin: 16px 0 20px 0;
+            border: 1px solid #e2d9cb;
+        }
+        .legend-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px 28px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            font-size: 14px;
+            color: #2f2a22;
+            padding: 5px 0;
+            border-bottom: 1px dashed #e3dbcd;
+        }
+        .legend-item:last-child,
+        .legend-item:nth-last-child(2) {
+            border-bottom: none;
+        }
+        .color-swatch {
+            width: 30px;
+            height: 6px;
+            border-radius: 12px;
+            flex-shrink: 0;
+            border: 1px solid rgba(0,0,0,0.08);
+        }
+        .legend-note {
+            font-size: 12.5px;
+            color: #6f624e;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #e0d6c6;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 22px;
+        }
+        .legend-note i {
+            font-style: normal;
+            background: #ede7db;
+            padding: 0 8px;
+            border-radius: 30px;
+        }
+
+        /* 更新日志 — 双栏滚动 */
+        .update-box {
+            background: #f2ece1;
+            padding: 18px 24px 12px 24px;
+            border-radius: 20px 4px 20px 4px;
+            margin: 18px 0 22px 0;
+            border-left: 6px solid #9b8b78;
+        }
+        .update-box h3 {
+            font-size: 16px;
+            letter-spacing: 2px;
+            font-weight: 600;
+            color: #3e3529;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .update-box h3::before {
+            content: "✦";
+            color: #9b8b78;
+            font-weight: 400;
+        }
+        .update-scroll {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px 30px;
             max-height: 300px;
             overflow-y: auto;
-            background: white;
+            padding-right: 6px;
         }
-        .popup-content {
+        .update-scroll ul {
+            list-style: none;
+            padding-left: 4px;
+        }
+        .update-scroll li {
+            font-size: 13.8px;
+            line-height: 1.65;
+            color: #3d352a;
+            padding: 3px 0 3px 22px;
+            position: relative;
+            border-bottom: 1px solid #e3d9ca;
+        }
+        .update-scroll li:last-child {
+            border-bottom: none;
+        }
+        .update-scroll li::before {
+            content: "▸";
+            position: absolute;
+            left: 2px;
+            color: #8f7e68;
+            font-weight: 700;
+        }
+        .update-scroll strong {
+            font-weight: 600;
+            color: #2f281e;
+        }
+        .correction-box {
+            margin-top: 12px;
+            background: #e8e1d4;
+            padding: 8px 16px 10px 16px;
+            border-radius: 30px 6px 30px 6px;
             font-size: 13px;
-            line-height: 1.6;
-            color: #444;
-            word-wrap: break-word;
-            white-space: normal;
+            color: #3f372c;
         }
-        .popup-content p {
-            margin: 0 0 8px 0;
+        .correction-box strong {
+            font-weight: 600;
         }
-        .popup-content br {
-            display: block;
-            content: "";
-            margin: 4px 0;
-        }
-        .popup-content table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 8px 0;
+        .correction-box .tag {
+            background: #b8aa92;
+            color: #fcf9f2;
+            padding: 0 12px;
+            border-radius: 40px;
             font-size: 12px;
+            margin-right: 8px;
+            display: inline-block;
         }
-        .popup-content th, .popup-content td {
-            border: 1px solid #ddd;
-            padding: 5px;
-            text-align: left;
+
+        /* 进入按钮 */
+        .enter-btn {
+            display: block;
+            width: 100%;
+            padding: 18px 20px;
+            background: #3d352a;
+            color: #f5efe6;
+            border: none;
+            border-radius: 60px 12px 60px 12px;
+            font-size: 22px;
+            font-weight: 500;
+            letter-spacing: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 6px 0 #201c16, 0 8px 20px rgba(0,0,0,0.2);
+            font-family: 'Noto Serif SC', serif;
+            margin-top: 12px;
         }
-        .popup-content th {
-            background-color: #f5f5f5;
+        .enter-btn:hover {
+            background: #4f4538;
+            transform: scale(1.01);
+            box-shadow: 0 6px 0 #201c16, 0 14px 30px rgba(0,0,0,0.25);
         }
-        .popup-content ul, .popup-content ol {
-            margin: 5px 0;
-            padding-left: 20px;
+        .enter-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #201c16;
         }
-        .popup-content img {
-            max-width: 100%;
-            height: auto;
+
+        .ornament {
+            text-align: center;
+            color: #cfc3b0;
+            font-size: 12px;
+            letter-spacing: 10px;
+            margin-top: 8px;
+            user-select: none;
         }
-        
-        .popup-content-wrapper::-webkit-scrollbar {
-            width: 6px;
+
+        /* 响应式 */
+        @media (max-width: 780px) {
+            .scroll-card { padding: 28px 18px 30px 18px; }
+            h1 { font-size: 26px; letter-spacing: 2px; }
+            .meta-grid { grid-template-columns: 1fr; gap: 6px; }
+            .meta-grid .helper-grid { grid-template-columns: 1fr; }
+            .legend-grid { grid-template-columns: 1fr; gap: 2px; }
+            .update-scroll { grid-template-columns: 1fr; max-height: 200px; }
+            .enter-btn { font-size: 18px; letter-spacing: 4px; padding: 14px; }
         }
-        .popup-content-wrapper::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 3px;
+        @media (max-width: 480px) {
+            .scroll-card { padding: 20px 12px 22px 12px; }
+            h1 { font-size: 20px; }
+            .meta-grid { padding: 12px 14px; font-size: 13px; }
+            .helper-grid { font-size: 12.5px; }
+            .legend-item { font-size: 12.5px; }
+            .update-scroll li { font-size: 12.5px; }
         }
-        .popup-content-wrapper::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
-            border-radius: 3px;
-        }
-        .popup-content-wrapper::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8;
-        }
+/* 更新文本 - 保留原始格式 */
+.update-text {
+    font-family: 'Noto Serif SC', 'Source Han Serif SC', serif;
+    font-size: 14px;
+    line-height: 1.8;
+    color: #3d352a;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    padding: 4px 0 4px 4px;
+    margin: 0;
+    background: transparent;
+    border: none;
+}
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div id="progress-bar"><div id="progress-fill">0%</div></div>
-    <div id="status">准备加载数据...</div>
-    <button id="light-toggle">🌙 关灯</button>
+<div class="scroll-card" id="startCard">
+    <!-- ===== 标题 ===== -->
+    <div class="title-block">
+        <h1>城墙城址数据集</h1>
+        <div class="subhead">v20260801-test</div>
+    </div>
 
-    <script>
-        // 在文件最开头，所有代码之前添加
-        ol.proj.useGeographic();
-        // ========== 配置区域 ==========
-        const KML_FILE = '城址-20260531.kmz';
-        
-        // ========== WGS-84 转 GCJ-02 加密算法（解决高德火星坐标偏移）==========
-        const a = 6378245.0;
-        const ee = 0.00669342162296594323;
-
-        function transformLat(x, y) {
-            let ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
-            ret += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
-            ret += (20.0 * Math.sin(y * Math.PI) + 40.0 * Math.sin(y / 3.0 * Math.PI)) * 2.0 / 3.0;
-            ret += (160.0 * Math.sin(y / 12.0 * Math.PI) + 320 * Math.sin(y * Math.PI / 30.0)) * 2.0 / 3.0;
-            return ret;
-        }
-
-        function transformLon(x, y) {
-            let ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
-            ret += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
-            ret += (20.0 * Math.sin(x * Math.PI) + 40.0 * Math.sin(x / 3.0 * Math.PI)) * 2.0 / 3.0;
-            ret += (150.0 * Math.sin(x / 12.0 * Math.PI) + 300.0 * Math.sin(x / 30.0 * Math.PI)) * 2.0 / 3.0;
-            return ret;
-        }
-
-        function wgs84ToGcj02(lon, lat) {
-            if (outOfChina(lon, lat)) {
-                return [lon, lat];
-            }
-            let dLat = transformLat(lon - 105.0, lat - 35.0);
-            let dLon = transformLon(lon - 105.0, lat - 35.0);
-            let radLat = lat / 180.0 * Math.PI;
-            let magic = Math.sin(radLat);
-            magic = 1 - ee * magic * magic;
-            let sqrtMagic = Math.sqrt(magic);
-            dLat = (dLat * 180.0) / ((a * (1 - ee)) / (magic * sqrtMagic) * Math.PI);
-            dLon = (dLon * 180.0) / (a / sqrtMagic * Math.cos(radLat) * Math.PI);
-            let mgLat = lat + dLat;
-            let mgLon = lon + dLon;
-            return [mgLon, mgLat];
-        }
-
-        function outOfChina(lon, lat) {
-            return lon < 72.004 || lon > 137.8347 || lat < 0.8293 || lat > 55.8271;
-        }
-
-        // 辅助递归函数：遍历多层坐标数组进行转换
-        function convertCoordsRecursive(coordArray) {
-            if (Array.isArray(coordArray) && coordArray.length > 0 && typeof coordArray[0] === 'number') {
-                const lon = coordArray[0];
-                const lat = coordArray[1];
-                const gcj = wgs84ToGcj02(lon, lat);
-                if (coordArray.length === 3) {
-                    return [gcj[0], gcj[1], coordArray[2]];
-                }
-                return gcj;
-            } else if (Array.isArray(coordArray)) {
-                return coordArray.map(item => convertCoordsRecursive(item));
-            } else {
-                return coordArray;
-            }
-        }
-        
-        // 辅助函数：经纬度转墨卡托投影坐标
-        function fromLonLat(lon, lat) {
-            const x = (lon * 20037508.34) / 180;
-            const y = Math.log(Math.tan(((90 + lat) * Math.PI) / 360)) / (Math.PI / 180);
-            const yMercator = (y * 20037508.34) / 180;
-            return [x, yMercator];
-        }
-        
-        // ========== 高德底图 ==========
-        const gaodeLayer = new ol.layer.Tile({
-            source: new ol.source.XYZ({
-                url: 'https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
-                attributions: '© 高德地图'
-            })
-        });
-        
-        // ========== 初始化地图 ==========
-        const defaultCenter = fromLonLat(108.94, 34.34);
-        
-        const map = new ol.Map({
-            target: 'map',
-            layers: [gaodeLayer],
-            view: new ol.View({
-                center: defaultCenter,
-                zoom: 10
-            })
-        });
-        
-        // ========== 分批加载KML ==========
-        const statusDiv = document.getElementById('status');
-        const progressBar = document.getElementById('progress-bar');
-        const progressFill = document.getElementById('progress-fill');
-        
-        const vectorLayer = new ol.layer.Vector({
-            source: new ol.source.Vector(),
-            style: null
-        });
-        map.addLayer(vectorLayer);
-        
-        // ========== 解析KML的核心函数 ==========
-        function parseKMLAndAddFeatures(kmlContent) {
-            console.log('开始解析KML，内容长度:', kmlContent.length);
-            
-            const format = new ol.format.KML({
-                extractStyles: true
-            });
-            
-            const features = format.readFeatures(kmlContent, {
-                featureProjection: 'EPSG:4326'
-            });
-            
-            console.log('解析出的要素数量:', features.length);
-            
-            if (features.length === 0) {
-                // 尝试用 XML 解析检查
-                try {
-                    const parser = new DOMParser();
-                    const xmlDoc = parser.parseFromString(kmlContent, 'text/xml');
-                    const placemarks = xmlDoc.getElementsByTagName('Placemark');
-                    console.log('XML 中 Placemark 数量:', placemarks.length);
-                } catch(e) {
-                    console.error('XML解析失败:', e);
-                }
-                statusDiv.innerText = '❌ 未解析到任何要素，请检查KML文件格式';
-                progressBar.style.display = 'none';
-                return;
-            }
-            
-            // 坐标转换
-            features.forEach(function(feature) {
-                const geom = feature.getGeometry();
-                if (geom) {
-                    let coords = geom.getCoordinates();
-                    const newCoords = convertCoordsRecursive(coords);
-                    geom.setCoordinates(newCoords);
-                }
-            });
-            
-            const totalCount = features.length;
-            statusDiv.innerText = `共 ${totalCount} 个要素，正在分批添加...`;
-            console.log(`解析完成，共 ${totalCount} 个要素`);
-            
-            let addedCount = 0;
-            const batchSize = 200;
-            
-            function addBatch() {
-                const end = Math.min(addedCount + batchSize, totalCount);
-                const batch = features.slice(addedCount, end);
-                vectorLayer.getSource().addFeatures(batch);
-                addedCount = end;
-                
-                const percent = 55 + Math.round((addedCount / totalCount) * 45);
-                progressFill.style.width = percent + '%';
-                progressFill.innerText = percent + '%';
-                statusDiv.innerText = `已添加 ${addedCount} / ${totalCount} 个要素`;
-                
-                if (addedCount < totalCount) {
-                    setTimeout(addBatch, 50);
-                } else {
-                    statusDiv.innerText = `✅ 加载完成！共 ${totalCount} 个要素`;
-                    setTimeout(() => {
-                        progressBar.style.display = 'none';
-                    }, 3000);
-                    
-                    const extent = vectorLayer.getSource().getExtent();
-                    if (extent && !isNaN(extent[0]) && !isNaN(extent[1]) && 
-                        extent[0] !== Infinity && extent[1] !== Infinity) {
-                        map.getView().fit(extent, { padding: [50, 50, 50, 50] });
-                    } else {
-                        const defaultCenter = fromLonLat(108.94, 34.34);
-                        map.getView().setCenter(defaultCenter);
-                        map.getView().setZoom(10);
-                        statusDiv.innerText = `⚠️ 要素加载完成，但无法自动定位，请手动缩放`;
-                    }
-                }
-            }
-            
-            setTimeout(addBatch, 100);
-        }
-        
-        // ========== 加载数据文件 ==========
-        fetch(KML_FILE)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`文件不存在或无法访问 (HTTP ${response.status})`);
-                }
-                const contentLength = response.headers.get('content-length');
-                let loaded = 0;
-                
-                statusDiv.innerText = '正在下载数据文件...';
-                progressBar.style.display = 'block';
-                progressFill.style.width = '5%';
-                progressFill.innerText = '5%';
-                
-                const reader = response.body.getReader();
-                const chunks = [];
-                
-                function readStream() {
-                    return reader.read().then(({done, value}) => {
-                        if (done) {
-                            return chunks;
-                        }
-                        chunks.push(value);
-                        loaded += value.length;
-                        if (contentLength) {
-                            const percent = Math.min(50, Math.round((loaded / contentLength) * 50));
-                            progressFill.style.width = percent + '%';
-                            progressFill.innerText = percent + '%';
-                        }
-                        return readStream();
-                    });
-                }
-                
-                return readStream().then(chunks => {
-                    const blob = new Blob(chunks);
-                    return blob.arrayBuffer();
-                });
-            })
-            .then(arrayBuffer => {
-                statusDiv.innerText = '正在解析数据文件...';
-                progressFill.style.width = '55%';
-                progressFill.innerText = '55%';
-                
-                // 检测是否为 KMZ（ZIP 文件）
-                const uint8Array = new Uint8Array(arrayBuffer);
-                const isKMZ = uint8Array[0] === 0x50 && uint8Array[1] === 0x4B; // 'PK'
-                const isKML = !isKMZ;
-                
-                console.log('文件类型检测 - isKMZ:', isKMZ);
-                
-                if (isKMZ) {
-                    console.log('检测到 KMZ 格式，正在解压...');
-                    // 使用 JSZip 解压
-                    JSZip.loadAsync(arrayBuffer).then(function(zip) {
-                        // 查找 KML 文件
-                        let kmlFile = null;
-                        let kmlFileName = null;
-                        
-                        zip.forEach(function(path, file) {
-                            if (path.toLowerCase().endsWith('.kml')) {
-                                kmlFile = file;
-                                kmlFileName = path;
-                            }
-                        });
-                        
-                        if (kmlFile) {
-                            console.log('找到 KML 文件:', kmlFileName);
-                            kmlFile.async('text').then(function(kmlContent) {
-                                console.log('解压成功，KML 大小:', kmlContent.length);
-                                parseKMLAndAddFeatures(kmlContent);
-                            });
-                        } else {
-                            // 如果找不到 .kml 文件，尝试找第一个文件
-                            const firstFile = Object.values(zip.files)[0];
-                            if (firstFile && !firstFile.dir) {
-                                firstFile.async('text').then(function(content) {
-                                    console.log('未找到 .kml 文件，尝试读取第一个文件');
-                                    parseKMLAndAddFeatures(content);
-                                });
-                            } else {
-                                statusDiv.innerText = '❌ KMZ 中未找到 KML 文件';
-                                progressBar.style.display = 'none';
-                                console.error('KMZ 中未找到任何 KML 文件');
-                            }
-                        }
-                    }).catch(function(error) {
-                        console.error('解压 KMZ 失败:', error);
-                        statusDiv.innerText = '❌ KMZ 解压失败: ' + error.message;
-                        progressBar.style.display = 'none';
-                    });
-                } else {
-                    // 直接作为 KML 解析
-                    const decoder = new TextDecoder('utf-8');
-                    const kmlContent = decoder.decode(arrayBuffer);
-                    console.log('检测到 KML 格式，直接解析');
-                    parseKMLAndAddFeatures(kmlContent);
-                }
-            })
-            .catch(error => {
-                console.error('加载失败:', error);
-                statusDiv.innerText = `❌ 加载失败: ${error.message}`;
-                progressBar.style.display = 'none';
-            });
-        
-        // ========== 优化后的弹窗（支持HTML和滚动）==========
-        const popupElement = document.createElement('div');
-        popupElement.className = 'ol-popup';
-        popupElement.innerHTML = `
-            <div class="popup-header">
-                <div class="popup-title"></div>
-                <a href="#" class="popup-closer">×</a>
+    <!-- ===== 作者 & 协助 ===== -->
+    <div class="meta-grid">
+    <div class="author"><strong>作者</strong><br>曲振宇（知乎 <span style="background:#d9cebc;padding:0 8px;border-radius:20px;">@吡啶</span>）</div>
+    <div>
+        <div style="font-weight:500; margin-bottom:6px; letter-spacing:1px;">数据、资料的提供与协助：</div>
+        <div class="helper-grid">
+            <!-- 左栏 -->
+            <div class="helper-col">
+                <div class="helper-item"><span class="name">无影tel</span><span class="desc">辽金时期城址的寻找与资料分享</span></div>
+                <div class="helper-item"><span class="name">67501015（B站）</span><span class="desc">内、外蒙古城址寻找与资料分享</span></div>
+                <div class="helper-item"><span class="name">火箭人（长城小站）</span><span class="desc">数据应用</span></div>
+                <div class="helper-item"><span class="name">吴钩斩月（今日头条）</span><span class="desc">汉代城址、清代府州县</span></div>
+                <div class="helper-item"><span class="name">李慧</span><span class="desc">哈尔滨周边城址实地探查、资料分享</span></div>
+                <div class="helper-item"><span class="name">徐辉（古城数字博物馆）</span><span class="desc">数据应用、近代城市地图分享</span></div>
             </div>
-            <div class="popup-content-wrapper">
-                <div class="popup-content"></div>
+            <!-- 右栏 -->
+            <div class="helper-col">
+                <div class="helper-item"><span class="name">胖昊（微信公众号、微博）</span><span class="desc">地方志资料提供、纠错</span></div>
+                <div class="helper-item"><span class="name">Kümül Öge</span><span class="desc">草原城址资料分享</span></div>
+                <div class="helper-item"><span class="name">刘志佳（边疆所）</span><span class="desc">新疆清代城址考据、纠错</span></div>
+                <div class="helper-item"><span class="name">宋晋（山东建筑大学）</span><span class="desc">城址相关论文资料查找与分享</span></div>
+                <div class="helper-item"><span class="name">张钊坤（华南理工大学）</span><span class="desc">军用地图资料分享</span></div>
             </div>
-        `;
-        
-        const popup = new ol.Overlay({
-            element: popupElement,
-            positioning: 'bottom-center',
-            offset: [0, -10],
-            stopEvent: false
-        });
-        map.addOverlay(popup);
-        
-        popupElement.querySelector('.popup-closer').onclick = function() {
-            popup.setPosition(undefined);
-            return false;
-        };
-        
-        function sanitizeAndRenderHTML(content) {
-            if (!content) return '（无描述信息）';
-            
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = content;
-            
-            const scripts = tempDiv.querySelectorAll('script');
-            scripts.forEach(script => script.remove());
-            
-            let html = tempDiv.innerHTML;
-            if (!/<[^>]+>/.test(html)) {
-                html = html.replace(/\n/g, '<br>').replace(/\s\s/g, ' &nbsp;');
-            }
-            
-            return html || '（无描述信息）';
-        }
-        
-        map.on('click', function(event) {
-            let featureFound = false;
-            
-            map.forEachFeatureAtPixel(event.pixel, function(feature, layer) {
-                if (layer === vectorLayer) {
-                    let name = feature.get('name') || feature.get('Name') || '（无标题）';
-                    let description = feature.get('description') || feature.get('Description') || '';
-                    
-                    const renderedHtml = sanitizeAndRenderHTML(description);
-                    
-                    popupElement.querySelector('.popup-title').innerHTML = name;
-                    popupElement.querySelector('.popup-content').innerHTML = renderedHtml;
-                    popup.setPosition(event.coordinate);
-                    featureFound = true;
-                    return true;
-                }
-            });
-            
-            if (!featureFound) {
-                popup.setPosition(undefined);
-            }
-        });
-        
-        map.on('pointermove', function(event) {
-            const hasFeature = map.hasFeatureAtPixel(event.pixel, {
-                layerFilter: (layer) => layer === vectorLayer
-            });
-            map.getTargetElement().style.cursor = hasFeature ? 'pointer' : '';
-        });
-        
-        // ========== 关灯模式实现（黑色阴影） ==========
-        const toggleBtn = document.getElementById('light-toggle');
-        let darkMode = false;
-        
-        // 创建一个Canvas绘制纯黑色半透明瓦片
-        function createBlackTile() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 256;
-            canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            // 纯黑色，alpha = 180 (约70%不透明度)
-            ctx.fillStyle = 'rgba(0, 0, 0, 180)';
-            ctx.fillRect(0, 0, 256, 256);
-            return canvas;
-        }
+        </div>
+    </div>
+</div>
 
-        const blackTileCanvas = createBlackTile();
-        const blackTileDataUrl = blackTileCanvas.toDataURL('image/png');
+    <!-- ===== 图例 ===== -->
+    <div class="legend-wrap">
+        <div class="legend-grid">
+            <div class="legend-item"><span class="color-swatch" style="background:#00b0b0;"></span> 青色线（线型：Co）：防御墙，包括长城、城墙、圩子墙等（推测区段以40%不透明度线标示，线型：Ct）</div>
+            <div class="legend-item"><span class="color-swatch" style="background:#4caf84;"></span> 绿色线（线型：Go）：建造形制与城墙类似的环城护堤，战时或可转换为防御设施（推测区段以40%不透明度线标示，线型：Gt）</div>
+            <div class="legend-item"><span class="color-swatch" style="background:#e07b3a;"></span> 橙色线（线型：Oo）：不依附城墙，单独存在的断崖、山险（推测区段以40%不透明度线标示，线型：Ot）</div>
+            <div class="legend-item"><span class="color-swatch" style="background:#4080c0;"></span> 蓝色线（线型：Bo）：不依附城墙，单独存在的环壕、围沟、水险（推测区段以40%不透明度线标示，线型：Bt）</div>
+            <div class="legend-item"><span class="color-swatch" style="background:#e07b9a;"></span> 粉色线（线型：Po）：低等级地上环围工事，包括竹篱、木栅、非城墙形态的寺庙/宫苑/陵寝围墙等（推测区段以40%不透明度线标示，线型：Pt）</div>
+            <div class="legend-item"><span class="color-swatch" style="background:#f5c542;opacity:0.8;"></span> 黄色线（线型：Yx，80%不透明度）：无连续防御工事的建成区或遗址范围（仅限未建城郭的清府县及历代都城）</div>
+        </div>
+    </div>
 
-        // 创建阴影图层
-        const shadowLayer = new ol.layer.Tile({
-            source: new ol.source.TileImage({
-                tileUrlFunction: function(tileCoord, pixelRatio, projection) {
-                    return blackTileDataUrl;
-                },
-                tilePixelRatio: 1,
-                projection: 'EPSG:3857',
-                tileGrid: new ol.tilegrid.TileGrid({
-                    extent: [-20037508.34, -20037508.34, 20037508.34, 20037508.34],
-                    origin: [-20037508.34, 20037508.34],
-                    resolutions: [156543.03392804097, 78271.51696402048, 39135.75848201024, 19567.87924100512, 9783.93962050256, 4891.96981025128, 2445.98490512564, 1222.99245256282, 611.49622628141, 305.748113140705, 152.8740565703525, 76.43702828517625, 38.21851414258813, 19.109257071294063, 9.554628535647032, 4.777314267823516, 2.388657133911758, 1.194328566955879, 0.5971642834779395, 0.29858214173896974]
-                })
-            }),
-            opacity: 1.0,
-            visible: false,
-            zIndex: 1
-        });
-        map.addLayer(shadowLayer);
-        
-        // 确保矢量图层在阴影之上
-        vectorLayer.setZIndex(2);
-        
-        toggleBtn.addEventListener('click', function() {
-            darkMode = !darkMode;
-            shadowLayer.setVisible(darkMode);
-            
-            if (darkMode) {
-                toggleBtn.innerHTML = '☀️ 开灯';
-                toggleBtn.classList.add('dark-mode');
-                gaodeLayer.setOpacity(0.4);
-            } else {
-                toggleBtn.innerHTML = '🌙 关灯';
-                toggleBtn.classList.remove('dark-mode');
-                gaodeLayer.setOpacity(1.0);
-            }
-        });
-        
-        console.log('地图初始化完成，等待加载KML...');
-        console.log('KML文件路径:', KML_FILE);
-    </script>
+    <!-- ===== 更新日志 ===== -->
+    <div class="update-box">
+    <h3>本期更新 · 2026.08.01</h3>
+    <div class="update-content">
+        <pre class="update-text">
+  1.补充哈尔滨地区汉魏辽金时代部分城址。
+  2.边疆部族城址：秦汉时期新增挹娄文件夹，录入三江平原汉魏南北朝时期城址；魏晋南北朝时期新增靺鞨文件夹，录入俄罗斯滨海边疆区靺鞨文化城址堡垒；隋唐时期新增黠戛斯文件夹，录入安加拉河流域堡垒；辽宋金时期新增漠北部族文件夹，收录阻卜等部族城址堡垒；明清时期新增边疆文件夹，补充满蒙藏区的明时期城址。
+  3.复核宣府、大同、山西三镇各堡城，添加简介于各堡城的备注栏中，后续将逐步录入所有城址的简介。
+  4.新增疑似鲁长城、补充魏长城华阴段、补充明大同镇旧边部分墙段、修正金界壕东北起点、延伸清代柳条边。新增莱芜、临沂地区古山寨群。
+  5.更新部分近年公布的远古时代城址。
+  6.增补、修正北宋西北堡寨。
+  7.复核、补充东北辽金元时期城址。
+  8.复核、补充内蒙古自治区呼和浩特、鄂尔多斯、阿拉善、巴彦淖尔历代城址。
+  9.新增乌拉特后旗、阿拉善右旗部分四普新发现城址。
+  10.补充俄罗斯远东地区部分城址。
+  11.补充散布在蒙古国境内的部分城址。
+  重大误差修正：
+  （马大屯）、（王古熘）、（勤得利山城）、（莽吉塔故城）、新郑（郑韩故城）、府城寨（宋）、大福堡（明）、黑龙江城（旧瑷珲）、农安县（清）、镇江历代、潭州（辽）、（霸王朝山城）（高句丽）、高州 三韩县（辽）、冯家堡（明蓟镇）、饶州 长乐县（辽）、（前进山城）（金）、（五十家子）（辽）、广地候官（小方城）（汉）、肩水都尉府（东大湾城）（汉、西夏）、（八一）（汉）
+        </pre>
+        <div class="correction-box">
+            <span class="tag">说明</span>
+            <strong>起始年代</strong>：一般按该城址轮廓形状形成的时间计。（除清府县外，一级分类按照起始年代分类）。<br>
+            <strong>废止年代</strong>：城墙拆除（以破坏其整体性为“拆除”，局部如瓮城、羊马城、城门之拆改不计）或城址废弃，二有一则视为废止。<br>
+            <strong>城址名</strong>：不加括号者为该城址建成时的名称，加括号者为该城址的现代名称，例如：“燕中都”“（窦店）”。
+        </div>
+    </div>
+</div>
+
+    <!-- ===== 进入按钮 ===== -->
+    <button class="enter-btn" id="enterBtn">进入地图</button>
+    <div class="ornament">— ◇ —</div>
+</div>
+
+<script>
+    document.getElementById('enterBtn').addEventListener('click', function() {
+        const card = document.getElementById('startCard');
+        card.style.transition = 'opacity 0.5s ease, transform 0.5s cubic-bezier(0.5, 0, 0.5, 1)';
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(-24px) scale(0.96)';
+        setTimeout(() => {
+            window.location.href = 'map.html';
+        }, 550);
+    });
+    document.getElementById('enterBtn').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            this.click();
+        }
+    });
+</script>
 </body>
 </html>
