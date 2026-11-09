@@ -55,12 +55,17 @@
             font-family: monospace;
         }
         
-        /* ========== 关灯模式按钮 ========== */
-        #light-toggle {
+        /* ========== 顶部操作按钮组 ========== */
+        #top-controls {
             position: fixed;
             top: 20px;
             right: 20px;
             z-index: 1100;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .ctrl-btn {
             padding: 10px 18px;
             background: rgba(30, 30, 30, 0.85);
             color: #f0f0f0;
@@ -74,18 +79,15 @@
             transition: all 0.2s ease;
             letter-spacing: 0.5px;
         }
-        #light-toggle:hover {
+        .ctrl-btn:hover {
             background: rgba(60, 60, 60, 0.95);
             border-color: #aaa;
             transform: scale(1.02);
         }
-        #light-toggle.dark-mode {
+        .ctrl-btn.active {
             background: rgba(200, 180, 100, 0.9);
             color: #1a1a1a;
             border-color: #cbb77a;
-        }
-        #light-toggle.dark-mode:hover {
-            background: rgba(220, 200, 120, 0.95);
         }
 
         /* ========== 返回首页按钮 ========== */
@@ -109,54 +111,6 @@
         #back-home:hover {
             background: rgba(60, 60, 60, 0.9);
             border-color: #aaa;
-        }
-
-        /* ========== 筛选侧栏 ========== */
-        #filter-panel {
-            position: fixed;
-            top: 70px;
-            left: 20px;
-            z-index: 1100;
-            width: 210px;
-            max-height: calc(100vh - 100px);
-            overflow-y: auto;
-            background: rgba(30, 30, 30, 0.82);
-            color: #f0f0f0;
-            border: 1px solid #555;
-            border-radius: 12px;
-            padding: 12px 14px;
-            font-size: 13px;
-            backdrop-filter: blur(4px);
-            box-shadow: 0 2px 12px rgba(0,0,0,0.4);
-        }
-        #filter-panel h4 {
-            margin: 0 0 8px 0;
-            font-size: 14px;
-            letter-spacing: 1px;
-            border-bottom: 1px solid #555;
-            padding-bottom: 6px;
-        }
-        #filter-panel .group-title {
-            margin: 8px 0 3px 0;
-            font-weight: 600;
-            color: #d6c9a8;
-        }
-        #filter-panel label {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 2px 0 2px 14px;
-            cursor: pointer;
-            user-select: none;
-        }
-        #filter-panel input[type="checkbox"] {
-            margin: 0;
-        }
-        #filter-panel .hint {
-            margin-top: 8px;
-            font-size: 11px;
-            color: #aaa;
-            line-height: 1.4;
         }
 
         /* ========== 弹窗样式 ========== */
@@ -282,38 +236,44 @@
         .popup-content-wrapper::-webkit-scrollbar-thumb:hover {
             background: #a8a8a8;
         }
+        
+        /* ========== 测量提示框 ========== */
+        .measure-tooltip {
+            position: relative;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 4px;
+            color: white;
+            padding: 4px 8px;
+            opacity: 0.9;
+            white-space: nowrap;
+            font-size: 12px;
+            pointer-events: none;
+        }
+        .measure-tooltip:before {
+            border-top: 6px solid rgba(0, 0, 0, 0.7);
+            border-right: 6px solid transparent;
+            border-left: 6px solid transparent;
+            content: "";
+            position: absolute;
+            bottom: -6px;
+            margin-left: -7px;
+            left: 50%;
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
     <div id="progress-bar"><div id="progress-fill">0%</div></div>
     <div id="status">准备加载数据...</div>
-    <button id="light-toggle">🌙 关灯</button>
-    <a id="back-home" href="index.html">← 返回首页</a>
-
-    <!-- ========== 筛选侧栏 ========== -->
-    <div id="filter-panel">
-        <h4>筛选</h4>
-        <div class="group-title">墙体</div>
-        <label><input type="checkbox" class="type-filter" value="Co" checked> Co</label>
-        <label><input type="checkbox" class="type-filter" value="Ct" checked> Ct</label>
-        <div class="group-title">环壕水险</div>
-        <label><input type="checkbox" class="type-filter" value="Bo" checked> Bo</label>
-        <label><input type="checkbox" class="type-filter" value="Bt" checked> Bt</label>
-        <div class="group-title">低级工事</div>
-        <label><input type="checkbox" class="type-filter" value="Po" checked> Po</label>
-        <label><input type="checkbox" class="type-filter" value="Pt" checked> Pt</label>
-        <div class="group-title">护堤</div>
-        <label><input type="checkbox" class="type-filter" value="Go" checked> Go</label>
-        <label><input type="checkbox" class="type-filter" value="Gt" checked> Gt</label>
-        <div class="group-title">遗址区</div>
-        <label><input type="checkbox" class="type-filter" value="Yx" checked> Yx</label>
-        <div class="group-title">临崖山险</div>
-        <label><input type="checkbox" class="type-filter" value="Oo" checked> Oo</label>
-        <div class="group-title">其他</div>
-        <label><input type="checkbox" class="type-filter" value="__OTHER__" checked> 未识别线型</label>
-        <div class="hint">全部取消勾选即全部隐藏。</div>
+    
+    <!-- 顶部控制栏 -->
+    <div id="top-controls">
+        <button class="ctrl-btn" id="measure-line-btn">📏 测距</button>
+        <button class="ctrl-btn" id="measure-area-btn">⬛ 测面积</button>
+        <button class="ctrl-btn" id="light-toggle">🌙 关灯</button>
     </div>
+    
+    <a id="back-home" href="index.html">← 返回首页</a>
 
     <script>
         // ============================================================
@@ -404,75 +364,15 @@
         const progressFill = document.getElementById('progress-fill');
 
         // ============================================================
-        // 4. 筛选状态与样式设置
-        // ============================================================
-        const ALL_TYPES = ['Co', 'Ct', 'Bo', 'Bt', 'Po', 'Pt', 'Go', 'Gt', 'Yx', 'Oo'];
-        const OTHER_KEY = '__OTHER__';
-        const selectedTypes = new Set(ALL_TYPES.concat([OTHER_KEY]));
-
-        function getLineType(feature) {
-            const desc = feature.get('description') || feature.get('Description') || '';
-            const m = desc.match(/\*线型[:：]\s*([A-Za-z]+)/);
-            return (m && ALL_TYPES.includes(m[1])) ? m[1] : OTHER_KEY;
-        }
-
-        // ============================================================
-        // 5. 矢量图层与侧栏监听
+        // 4. 矢量图层 (纯净版，无筛选)
         // ============================================================
         const vectorLayer = new ol.layer.Vector({
-            source: new ol.source.Vector(),
-            style: function(feature, resolution) {
-                const type = feature.get('lineType') || getLineType(feature);
-                
-                // 核心逻辑：没勾选，直接返回 null 隐藏要素
-                if (!selectedTypes.has(type)) {
-                    return null;
-                }
-
-                // 尝试使用原始样式
-                let style = feature.getStyle();
-                if (typeof style === 'function') {
-                    style = style.call(feature, resolution);
-                }
-                if (style) {
-                    return style;
-                }
-
-                // 终极兜底：如果原始样式丢了，强行给颜色，保证肯定看得见
-                let color = 'rgba(0, 176, 176, 1)'; 
-                if (type.startsWith('B')) color = 'rgba(64, 128, 192, 1)'; 
-                if (type.startsWith('G')) color = 'rgba(76, 175, 132, 1)'; 
-                if (type.startsWith('O')) color = 'rgba(224, 123, 58, 1)'; 
-                if (type.startsWith('P')) color = 'rgba(224, 123, 154, 1)'; 
-                if (type === 'Yx') color = 'rgba(245, 197, 66, 1)';         
-
-                return new ol.style.Style({
-                    stroke: new ol.style.Stroke({ color: color, width: 2 })
-                });
-            }
+            source: new ol.source.Vector()
         });
         map.addLayer(vectorLayer);
 
-        // 侧栏勾选监听
-        document.getElementById('filter-panel').addEventListener('change', function(e) {
-            if (e.target && e.target.classList.contains('type-filter')) {
-                if (e.target.checked) {
-                    selectedTypes.add(e.target.value);
-                } else {
-                    selectedTypes.delete(e.target.value);
-                }
-                
-                console.log('当前选中:', [...selectedTypes]);
-                
-                // 最暴力的强制重绘：通知数据源过滤并重载，然后重绘图层
-                vectorLayer.getSource().changed();
-                vectorLayer.changed();
-                map.render();
-            }
-        });
-
         // ============================================================
-        // 6. 解析 KML
+        // 5. 解析 KML
         // ============================================================
         function parseKMLAndAddFeatures(kmlContent) {
             const format = new ol.format.KML({ extractStyles: true });
@@ -491,7 +391,6 @@
                 if (geom) {
                     geom.setCoordinates(convertCoordsRecursive(geom.getCoordinates()));
                 }
-                feature.set('lineType', getLineType(feature));
             });
 
             const totalCount = features.length;
@@ -523,7 +422,7 @@
         }
 
         // ============================================================
-        // 7. 加载数据
+        // 6. 加载数据
         // ============================================================
         async function loadMapData() {
             try {
@@ -568,7 +467,7 @@
         }
 
         // ============================================================
-        // 8. 弹窗、关灯模式等其他功能
+        // 7. 弹窗功能 (修复了穿透和卡顿)
         // ============================================================
         const popupElement = document.createElement('div');
         popupElement.className = 'ol-popup';
@@ -613,12 +512,18 @@
         });
 
         map.on('pointermove', function(event) {
+            // 测量状态下不改变鼠标指针
+            if (isMeasuring) return;
+            
             const hasFeature = map.hasFeatureAtPixel(event.pixel, {
                 layerFilter: (layer) => layer === vectorLayer
             });
             map.getTargetElement().style.cursor = hasFeature ? 'pointer' : '';
         });
 
+        // ============================================================
+        // 8. 关灯模式 (70% 半透明黑)
+        // ============================================================
         const toggleBtn = document.getElementById('light-toggle');
         let darkMode = false;
 
@@ -654,7 +559,160 @@
             darkMode = !darkMode;
             shadowLayer.setVisible(darkMode);
             toggleBtn.innerHTML = darkMode ? '☀️ 开灯' : '🌙 关灯';
-            toggleBtn.classList.toggle('dark-mode', darkMode);
+            toggleBtn.classList.toggle('active', darkMode);
+        });
+
+        // ============================================================
+        // 9. 测距与测面积功能
+        // ============================================================
+        let isMeasuring = false;
+        let currentMeasureType = null;
+        let drawInteraction = null;
+
+        // 测量图层源与样式
+        const measureSource = new ol.source.Vector();
+        const measureVector = new ol.layer.Vector({
+            source: measureSource,
+            style: new ol.style.Style({
+                fill: new ol.style.Fill({ color: 'rgba(255, 204, 51, 0.3)' }),
+                stroke: new ol.style.Stroke({ color: 'rgba(255, 204, 51, 1)', width: 2 }),
+                image: new ol.style.Circle({
+                    radius: 7,
+                    fill: new ol.style.Fill({ color: 'rgba(255, 204, 51, 1)' })
+                })
+            }),
+            zIndex: 100 // 保证测量图形在最上层
+        });
+        map.addLayer(measureVector);
+
+        // 提示框
+        const measureTooltipElement = document.createElement('div');
+        measureTooltipElement.className = 'measure-tooltip';
+        const measureTooltip = new ol.Overlay({
+            element: measureTooltipElement,
+            offset: [0, -15],
+            positioning: 'bottom-center',
+            stopEvent: false
+        });
+        map.addOverlay(measureTooltip);
+
+        // 核心：格式化输出距离/面积
+        const formatLength = function(line) {
+            const length = ol.sphere.getLength(line, {projection: 'EPSG:4326'}); // 使用 WGS84 球体计算
+            if (length > 1000) return (Math.round(length / 1000 * 100) / 100) + ' 公里';
+            return (Math.round(length * 100) / 100) + ' 米';
+        };
+
+        const formatArea = function(polygon) {
+            const area = ol.sphere.getArea(polygon, {projection: 'EPSG:4326'});
+            if (area > 1000000) return (Math.round(area / 1000000 * 100) / 100) + ' 平方公里';
+            return (Math.round(area * 100) / 100) + ' 平方米';
+        };
+
+        // 添加交互逻辑
+        function addMeasureInteraction(type) {
+            // 清理旧状态
+            if (drawInteraction) {
+                map.removeInteraction(drawInteraction);
+                drawInteraction = null;
+            }
+            measureSource.clear();
+            measureTooltipElement.parentNode.removeChild(measureTooltipElement);
+            measureTooltip.setPosition(undefined);
+
+            currentMeasureType = type;
+            isMeasuring = true;
+            map.getTargetElement().style.cursor = 'crosshair';
+
+            drawInteraction = new ol.interaction.Draw({
+                source: measureSource,
+                type: type === 'line' ? 'LineString' : 'Polygon',
+                style: new ol.style.Style({
+                    fill: new ol.style.Fill({ color: 'rgba(255, 204, 51, 0.2)' }),
+                    stroke: new ol.style.Stroke({ color: 'rgba(255, 204, 51, 0.8)', width: 2, lineDash: [10, 10] }),
+                    image: new ol.style.Circle({
+                        radius: 5,
+                        stroke: new ol.style.Stroke({ color: 'rgba(255, 204, 51, 0.8)', width: 2 }),
+                        fill: new ol.style.Fill({ color: 'rgba(255, 255, 255, 0.5)' })
+                    })
+                })
+            });
+            map.addInteraction(drawInteraction);
+
+            // 绘制中实时显示
+            drawInteraction.on('drawstart', function(evt) {
+                let sketch = evt.feature;
+                let tooltipCoord = evt.coordinate;
+
+                sketch.getGeometry().on('change', function(evt) {
+                    let geom = evt.target;
+                    let output;
+                    if (geom instanceof ol.geom.Polygon) {
+                        output = formatArea(geom);
+                        tooltipCoord = geom.getInteriorPoint().getCoordinates();
+                    } else if (geom instanceof ol.geom.LineString) {
+                        output = formatLength(geom);
+                        tooltipCoord = geom.getLastCoordinate();
+                    }
+                    measureTooltipElement.innerHTML = output;
+                    measureTooltip.setPosition(tooltipCoord);
+                });
+            });
+
+            // 绘制结束，保留提示框
+            drawInteraction.on('drawend', function() {
+                measureTooltipElement.className = 'measure-tooltip';
+                // 复制一个新提示框给下一个测量用
+                measureTooltipElement = document.createElement('div');
+                measureTooltipElement.className = 'measure-tooltip';
+                measureTooltip = new ol.Overlay({
+                    element: measureTooltipElement,
+                    offset: [0, -15],
+                    positioning: 'bottom-center',
+                    stopEvent: false
+                });
+                map.addOverlay(measureTooltip);
+            });
+        }
+
+        // 按钮事件
+        const btnLine = document.getElementById('measure-line-btn');
+        const btnArea = document.getElementById('measure-area-btn');
+
+        function resetButtons() {
+            btnLine.classList.remove('active');
+            btnArea.classList.remove('active');
+        }
+
+        btnLine.addEventListener('click', function() {
+            if (currentMeasureType === 'line') {
+                // 再次点击取消测量
+                if (drawInteraction) map.removeInteraction(drawInteraction);
+                isMeasuring = false;
+                currentMeasureType = null;
+                resetButtons();
+                map.getTargetElement().style.cursor = '';
+                measureSource.clear();
+                return;
+            }
+            resetButtons();
+            this.classList.add('active');
+            addMeasureInteraction('line');
+        });
+
+        btnArea.addEventListener('click', function() {
+            if (currentMeasureType === 'area') {
+                if (drawInteraction) map.removeInteraction(drawInteraction);
+                isMeasuring = false;
+                currentMeasureType = null;
+                resetButtons();
+                map.getTargetElement().style.cursor = '';
+                measureSource.clear();
+                return;
+            }
+            resetButtons();
+            this.classList.add('active');
+            addMeasureInteraction('area');
         });
 
         // 启动
