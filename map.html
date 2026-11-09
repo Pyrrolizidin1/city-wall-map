@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>古城墙数据集</title>
+    <title>城墙城址数据集</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css" />
     <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
     <!-- 引入 JSZip（解压 KMZ） -->
@@ -391,7 +391,7 @@
         }
 
         // ============================================================
-        // 3. 高德底图
+        // 3. 高德底图 & 初始化地图
         // ============================================================
         const gaodeLayer = new ol.layer.Tile({
             source: new ol.source.XYZ({
@@ -400,11 +400,7 @@
             })
         });
 
-        // ============================================================
-        // 4. 初始化地图
-        // ============================================================
         const defaultCenter = fromLonLat(108.94, 34.34);
-
         const map = new ol.Map({
             target: 'map',
             layers: [gaodeLayer],
@@ -414,15 +410,12 @@
             })
         });
 
-        // ============================================================
-        // 5. 状态显示元素
-        // ============================================================
         const statusDiv = document.getElementById('status');
         const progressBar = document.getElementById('progress-bar');
         const progressFill = document.getElementById('progress-fill');
 
         // ============================================================
-        // 6. 筛选状态：默认全部勾选
+        // 4. 筛选状态与样式设置
         // ============================================================
         const ALL_TYPES = ['Co', 'Ct', 'Bo', 'Bt', 'Po', 'Pt', 'Go', 'Gt', 'Yx', 'Oo'];
         const OTHER_KEY = '__OTHER__';
@@ -437,34 +430,36 @@
             return OTHER_KEY;
         }
 
-        // 样式函数：保留原始样式，未勾选则返回 null
+        // 全局变量，用于暂存 KML 原本的样式函数
+        let originalLayerStyle = null;
+
         function filterStyle(feature, resolution) {
             const type = feature.get('lineType') || getLineType(feature);
             
-            // 1. 如果没勾选，直接返回 null 隐藏
+            // 没勾选，返回 null 隐藏要素
             if (!selectedTypes.has(type)) {
                 return null;
             }
 
-            // 2. 如果勾选了，返回 KML 原本的样式
-            // 注意：OpenLayers 的 KML 解析器通常会把样式存在内部的 styleFunction 中
-            const styleFunction = feature.getStyleFunction();
-            if (styleFunction) {
-                const styles = styleFunction.call(feature, resolution);
-                return styles || null;
-            }
-            
-            // 如果没找到 styleFunction，再尝试 getStyle
+            // 勾选了：获取原本的样式
+            // 1. 优先尝试获取要素自身的样式
             let style = feature.getStyle();
             if (typeof style === 'function') {
                 style = style.call(feature, resolution);
             }
-            
-            return style || undefined; 
+            if (style) {
+                return style;
+            }
+
+            // 2. 如果要素自身没样式，尝试获取图层原本缓存的样式
+            if (typeof originalLayerStyle === 'function') {
+                return originalLayerStyle.call(feature, resolution);
+            }
+            return originalLayerStyle;
         }
 
         // ============================================================
-        // 7. 矢量图层
+        // 5. 矢量图层与侧栏监听
         // ============================================================
         const vectorLayer = new ol.layer.Vector({
             source: new ol.source.Vector(),
@@ -472,49 +467,43 @@
         });
         map.addLayer(vectorLayer);
 
-        // 侧栏勾选监听
-        document.querySelectorAll('.type-filter').forEach(function(cb) {
-            cb.addEventListener('change', function() {
-                if (this.checked) {
-                    selectedTypes.add(this.value);
+        // 侧栏勾选监听 (改为绑定 change 事件，性能更好且防穿透)
+        document.getElementById('filter-panel').addEventListener('change', function(e) {
+            if (e.target && e.target.classList.contains('type-filter')) {
+                const val = e.target.value;
+                if (e.target.checked) {
+                    selectedTypes.add(val);
                 } else {
-                    selectedTypes.delete(this.value);
+                    selectedTypes.delete(val);
                 }
+                
+                console.log('当前选中:', [...selectedTypes]);
+                
                 vectorLayer.changed();
-            });
+            }
         });
 
         // ============================================================
-        // 8. 解析 KML 的核心函数
+        // 6. 解析 KML
         // ============================================================
         function parseKMLAndAddFeatures(kmlContent) {
-            console.log('开始解析KML，内容长度:', kmlContent.length);
-
-            const format = new ol.format.KML({
-                extractStyles: true
-            });
-
+            const format = new ol.format.KML({ extractStyles: true });
             const features = format.readFeatures(kmlContent, {
                 featureProjection: 'EPSG:4326'
             });
 
-            console.log('解析出的要素数量:', features.length);
-
             if (features.length === 0) {
-                try {
-                    const parser = new DOMParser();
-                    const xmlDoc = parser.parseFromString(kmlContent, 'text/xml');
-                    const placemarks = xmlDoc.getElementsByTagName('Placemark');
-                    console.log('XML 中 Placemark 数量:', placemarks.length);
-                } catch(e) {
-                    console.error('XML解析失败:', e);
-                }
-                statusDiv.innerText = '❌ 未解析到任何要素，请检查KML文件格式';
+                statusDiv.innerText = '❌ 未解析到任何要素';
                 progressBar.style.display = 'none';
                 return;
             }
 
-            // 坐标转换 + 线型预提取
+            // 关键：获取 OpenLayers KML 解析器底层的样式函数（防止默认样式被顶替）
+            // 这个是 KML 带有外部 styleUrl 时 OL 自动生成的默认样式函数
+            if (features.length > 0 && features[0].getStyleFunction()) {
+                originalLayerStyle = features[0].getStyleFunction();
+            }
+
             features.forEach(function(feature, i) {
                 const geom = feature.getGeometry();
                 if (geom) {
@@ -523,21 +512,9 @@
                     geom.setCoordinates(newCoords);
                 }
                 feature.set('lineType', getLineType(feature));
-
-                // 临时调试：只看第一条
-                if (i === 0) {
-                    console.log('=== 第一条要素调试 ===');
-                    console.log('name:', feature.get('name') || feature.get('Name'));
-                    console.log('description 原文:', feature.get('description') || feature.get('Description'));
-                    console.log('解析出的 lineType:', feature.get('lineType'));
-                    console.log('全部属性:', feature.getProperties());
-                }
             });
 
             const totalCount = features.length;
-            statusDiv.innerText = `共 ${totalCount} 个要素，正在分批添加...`;
-            console.log(`解析完成，共 ${totalCount} 个要素`);
-
             let addedCount = 0;
             const batchSize = 200;
 
@@ -556,129 +533,65 @@
                     setTimeout(addBatch, 50);
                 } else {
                     statusDiv.innerText = `✅ 加载完成！共 ${totalCount} 个要素`;
-                    setTimeout(() => {
-                        progressBar.style.display = 'none';
-                    }, 3000);
+                    setTimeout(() => { progressBar.style.display = 'none'; }, 3000);
 
                     const extent = vectorLayer.getSource().getExtent();
-                    if (extent && !isNaN(extent[0]) && !isNaN(extent[1]) &&
-                        extent[0] !== Infinity && extent[1] !== Infinity) {
+                    if (extent && !isNaN(extent[0])) {
                         map.getView().fit(extent, { padding: [50, 50, 50, 50] });
-                    } else {
-                        const defaultCenter = fromLonLat(108.94, 34.34);
-                        map.getView().setCenter(defaultCenter);
-                        map.getView().setZoom(10);
-                        statusDiv.innerText = `⚠️ 要素加载完成，但无法自动定位，请手动缩放`;
                     }
                 }
             }
-
             setTimeout(addBatch, 100);
         }
 
         // ============================================================
-        // 9. 加载数据
+        // 7. 加载数据
         // ============================================================
         async function loadMapData() {
             try {
-                const url = window.KML_FILE || KML_FILE;
-                if (!url) {
-                    throw new Error('KML_FILE 未设置');
-                }
+                const response = await fetch(KML_FILE);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-                console.log('正在从 Worker 加载数据:', url);
-
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`文件不存在或无法访问 (HTTP ${response.status})`);
-                }
-
-                const contentLength = response.headers.get('content-length');
-                let loaded = 0;
-
-                statusDiv.innerText = '正在下载数据文件...';
                 progressBar.style.display = 'block';
                 progressFill.style.width = '5%';
-                progressFill.innerText = '5%';
 
                 const reader = response.body.getReader();
                 const chunks = [];
-
-                function readStream() {
-                    return reader.read().then(({done, value}) => {
-                        if (done) {
-                            return chunks;
-                        }
-                        chunks.push(value);
-                        loaded += value.length;
-                        if (contentLength) {
-                            const percent = Math.min(50, Math.round((loaded / contentLength) * 50));
-                            progressFill.style.width = percent + '%';
-                            progressFill.innerText = percent + '%';
-                        }
-                        return readStream();
-                    });
+                while (true) {
+                    const {done, value} = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
                 }
 
-                const allChunks = await readStream();
-                const blob = new Blob(allChunks);
+                const blob = new Blob(chunks);
                 const arrayBuffer = await blob.arrayBuffer();
-
-                statusDiv.innerText = '正在解析数据文件...';
                 progressFill.style.width = '55%';
-                progressFill.innerText = '55%';
 
                 const uint8Array = new Uint8Array(arrayBuffer);
                 const isKMZ = uint8Array[0] === 0x50 && uint8Array[1] === 0x4B;
 
-                console.log('文件类型检测 - isKMZ:', isKMZ);
-
                 if (isKMZ) {
-                    console.log('检测到 KMZ 格式，正在解压...');
                     const zip = await JSZip.loadAsync(arrayBuffer);
                     let kmlFile = null;
-                    let kmlFileName = null;
-
                     zip.forEach(function(path, file) {
-                        if (path.toLowerCase().endsWith('.kml')) {
-                            kmlFile = file;
-                            kmlFileName = path;
-                        }
+                        if (path.toLowerCase().endsWith('.kml')) kmlFile = file;
                     });
-
                     if (kmlFile) {
-                        console.log('找到 KML 文件:', kmlFileName);
                         const kmlContent = await kmlFile.async('text');
-                        console.log('解压成功，KML 大小:', kmlContent.length);
                         parseKMLAndAddFeatures(kmlContent);
-                    } else {
-                        const firstFile = Object.values(zip.files)[0];
-                        if (firstFile && !firstFile.dir) {
-                            const content = await firstFile.async('text');
-                            console.log('未找到 .kml 文件，尝试读取第一个文件');
-                            parseKMLAndAddFeatures(content);
-                        } else {
-                            statusDiv.innerText = '❌ KMZ 中未找到 KML 文件';
-                            progressBar.style.display = 'none';
-                            console.error('KMZ 中未找到任何 KML 文件');
-                        }
                     }
                 } else {
                     const decoder = new TextDecoder('utf-8');
-                    const kmlContent = decoder.decode(arrayBuffer);
-                    console.log('检测到 KML 格式，直接解析');
-                    parseKMLAndAddFeatures(kmlContent);
+                    parseKMLAndAddFeatures(decoder.decode(arrayBuffer));
                 }
-
             } catch (error) {
-                console.error('加载失败:', error);
                 statusDiv.innerText = `❌ 加载失败: ${error.message}`;
                 progressBar.style.display = 'none';
             }
         }
 
         // ============================================================
-        // 10. 弹窗功能
+        // 8. 弹窗、关灯模式等其他功能
         // ============================================================
         const popupElement = document.createElement('div');
         popupElement.className = 'ol-popup';
@@ -704,44 +617,22 @@
             popup.setPosition(undefined);
         });
 
-        function sanitizeAndRenderHTML(content) {
-            if (!content) return '（无描述信息）';
-
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = content;
-
-            const scripts = tempDiv.querySelectorAll('script');
-            scripts.forEach(script => script.remove());
-
-            let html = tempDiv.innerHTML;
-            if (!/<[^>]+>/.test(html)) {
-                html = html.replace(/\n/g, '<br>').replace(/\s\s/g, ' &nbsp;');
-            }
-
-            return html || '（无描述信息）';
-        }
-
         map.on('click', function(event) {
             let featureFound = false;
-
             map.forEachFeatureAtPixel(event.pixel, function(feature, layer) {
                 if (layer === vectorLayer) {
                     let name = feature.get('name') || feature.get('Name') || '（无标题）';
                     let description = feature.get('description') || feature.get('Description') || '';
 
-                    const renderedHtml = sanitizeAndRenderHTML(description);
-
+                    let html = description.replace(/\n/g, '<br>');
                     popupElement.querySelector('.popup-title').textContent = name;
-                    popupElement.querySelector('.popup-content').innerHTML = renderedHtml;
+                    popupElement.querySelector('.popup-content').innerHTML = html || '（无描述信息）';
                     popup.setPosition(event.coordinate);
                     featureFound = true;
                     return true;
                 }
             });
-
-            if (!featureFound) {
-                popup.setPosition(undefined);
-            }
+            if (!featureFound) popup.setPosition(undefined);
         });
 
         map.on('pointermove', function(event) {
@@ -751,9 +642,6 @@
             map.getTargetElement().style.cursor = hasFeature ? 'pointer' : '';
         });
 
-        // ============================================================
-        // 11. 关灯模式（修正：黑层 70% 不透明度，底图不再额外调暗）
-        // ============================================================
         const toggleBtn = document.getElementById('light-toggle');
         let darkMode = false;
 
@@ -762,21 +650,15 @@
             canvas.width = 256;
             canvas.height = 256;
             const ctx = canvas.getContext('2d');
-            // 70% 不透明度的黑色覆盖层
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
             ctx.fillRect(0, 0, 256, 256);
             return canvas;
         }
 
-        const blackTileCanvas = createBlackTile();
-        const blackTileDataUrl = blackTileCanvas.toDataURL('image/png');
-
+        const blackTileDataUrl = createBlackTile().toDataURL('image/png');
         const shadowLayer = new ol.layer.Tile({
             source: new ol.source.TileImage({
-                tileUrlFunction: function() {
-                    return blackTileDataUrl;
-                },
-                tilePixelRatio: 1,
+                tileUrlFunction: function() { return blackTileDataUrl; },
                 projection: 'EPSG:3857',
                 tileGrid: new ol.tilegrid.TileGrid({
                     extent: [-20037508.34, -20037508.34, 20037508.34, 20037508.34],
@@ -789,28 +671,16 @@
             zIndex: 1
         });
         map.addLayer(shadowLayer);
-
         vectorLayer.setZIndex(2);
 
         toggleBtn.addEventListener('click', function() {
             darkMode = !darkMode;
             shadowLayer.setVisible(darkMode);
-
-            if (darkMode) {
-                toggleBtn.innerHTML = '☀️ 开灯';
-                toggleBtn.classList.add('dark-mode');
-                // 不再调低底图 opacity，由 70% 黑层压暗
-            } else {
-                toggleBtn.innerHTML = '🌙 关灯';
-                toggleBtn.classList.remove('dark-mode');
-            }
+            toggleBtn.innerHTML = darkMode ? '☀️ 开灯' : '🌙 关灯';
+            toggleBtn.classList.toggle('dark-mode', darkMode);
         });
 
-        // ============================================================
-        // 12. 启动
-        // ============================================================
-        console.log('地图初始化完成，通过 Worker 代理加载 KML...');
-        console.log('Worker 地址:', WORKER_URL);
+        // 启动
         loadMapData();
     </script>
 </body>
