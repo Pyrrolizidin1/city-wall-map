@@ -111,6 +111,54 @@
             border-color: #aaa;
         }
 
+        /* ========== 筛选侧栏 ========== */
+        #filter-panel {
+            position: fixed;
+            top: 70px;
+            left: 20px;
+            z-index: 1100;
+            width: 210px;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+            background: rgba(30, 30, 30, 0.82);
+            color: #f0f0f0;
+            border: 1px solid #555;
+            border-radius: 12px;
+            padding: 12px 14px;
+            font-size: 13px;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+        }
+        #filter-panel h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            letter-spacing: 1px;
+            border-bottom: 1px solid #555;
+            padding-bottom: 6px;
+        }
+        #filter-panel .group-title {
+            margin: 8px 0 3px 0;
+            font-weight: 600;
+            color: #d6c9a8;
+        }
+        #filter-panel label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 0 2px 14px;
+            cursor: pointer;
+            user-select: none;
+        }
+        #filter-panel input[type="checkbox"] {
+            margin: 0;
+        }
+        #filter-panel .hint {
+            margin-top: 8px;
+            font-size: 11px;
+            color: #aaa;
+            line-height: 1.4;
+        }
+
         /* ========== 弹窗样式 ========== */
         .ol-popup {
             position: absolute;
@@ -243,6 +291,30 @@
     <button id="light-toggle">🌙 关灯</button>
     <a id="back-home" href="index.html">← 返回首页</a>
 
+    <!-- ========== 筛选侧栏 ========== -->
+    <div id="filter-panel">
+        <h4>筛选</h4>
+        <div class="group-title">墙体</div>
+        <label><input type="checkbox" class="type-filter" value="Co" checked> Co</label>
+        <label><input type="checkbox" class="type-filter" value="Ct" checked> Ct</label>
+        <div class="group-title">环壕水险</div>
+        <label><input type="checkbox" class="type-filter" value="Bo" checked> Bo</label>
+        <label><input type="checkbox" class="type-filter" value="Bt" checked> Bt</label>
+        <div class="group-title">低级工事</div>
+        <label><input type="checkbox" class="type-filter" value="Po" checked> Po</label>
+        <label><input type="checkbox" class="type-filter" value="Pt" checked> Pt</label>
+        <div class="group-title">护堤</div>
+        <label><input type="checkbox" class="type-filter" value="Go" checked> Go</label>
+        <label><input type="checkbox" class="type-filter" value="Gt" checked> Gt</label>
+        <div class="group-title">遗址区</div>
+        <label><input type="checkbox" class="type-filter" value="Yx" checked> Yx</label>
+        <div class="group-title">临崖山险</div>
+        <label><input type="checkbox" class="type-filter" value="Oo" checked> Oo</label>
+        <div class="group-title">其他</div>
+        <label><input type="checkbox" class="type-filter" value="__OTHER__" checked> 未识别线型</label>
+        <div class="hint">全部取消勾选即全部隐藏。</div>
+    </div>
+
     <script>
         // ============================================================
         // 1. 配置：使用 Cloudflare Worker 代理
@@ -350,16 +422,57 @@
         const progressFill = document.getElementById('progress-fill');
 
         // ============================================================
-        // 6. 矢量图层
+        // 6. 筛选状态：默认全部勾选
+        // ============================================================
+        const ALL_TYPES = ['Co', 'Ct', 'Bo', 'Bt', 'Po', 'Pt', 'Go', 'Gt', 'Yx', 'Oo'];
+        const OTHER_KEY = '__OTHER__';
+        const selectedTypes = new Set(ALL_TYPES.concat([OTHER_KEY]));
+
+        function getLineType(feature) {
+            const desc = feature.get('description') || feature.get('Description') || '';
+            const m = desc.match(/\*线型[:：]\s*([A-Za-z]+)/);
+            if (m && ALL_TYPES.indexOf(m[1]) !== -1) {
+                return m[1];
+            }
+            return OTHER_KEY;
+        }
+
+        // 样式函数：未勾选线型返回 null（不渲染），否则使用 KML 自带样式
+        function filterStyle(feature, resolution) {
+            const type = feature.get('lineType') || getLineType(feature);
+            if (!selectedTypes.has(type)) {
+                return null;
+            }
+            const s = feature.getStyle();
+            if (s) {
+                return typeof s === 'function' ? s(feature, resolution) : s;
+            }
+            return undefined; // 交给默认样式
+        }
+
+        // ============================================================
+        // 7. 矢量图层
         // ============================================================
         const vectorLayer = new ol.layer.Vector({
             source: new ol.source.Vector(),
-            style: null
+            style: filterStyle
         });
         map.addLayer(vectorLayer);
 
+        // 侧栏勾选监听
+        document.querySelectorAll('.type-filter').forEach(function(cb) {
+            cb.addEventListener('change', function() {
+                if (this.checked) {
+                    selectedTypes.add(this.value);
+                } else {
+                    selectedTypes.delete(this.value);
+                }
+                vectorLayer.changed();
+            });
+        });
+
         // ============================================================
-        // 7. 解析 KML 的核心函数
+        // 8. 解析 KML 的核心函数
         // ============================================================
         function parseKMLAndAddFeatures(kmlContent) {
             console.log('开始解析KML，内容长度:', kmlContent.length);
@@ -388,7 +501,7 @@
                 return;
             }
 
-            // 坐标转换
+            // 坐标转换 + 线型预提取
             features.forEach(function(feature) {
                 const geom = feature.getGeometry();
                 if (geom) {
@@ -396,6 +509,7 @@
                     const newCoords = convertCoordsRecursive(coords);
                     geom.setCoordinates(newCoords);
                 }
+                feature.set('lineType', getLineType(feature));
             });
 
             const totalCount = features.length;
@@ -441,7 +555,7 @@
         }
 
         // ============================================================
-        // 8. 加载数据
+        // 9. 加载数据
         // ============================================================
         async function loadMapData() {
             try {
@@ -542,7 +656,7 @@
         }
 
         // ============================================================
-        // 9. 弹窗功能
+        // 10. 弹窗功能
         // ============================================================
         const popupElement = document.createElement('div');
         popupElement.className = 'ol-popup';
@@ -616,7 +730,7 @@
         });
 
         // ============================================================
-        // 10. 关灯模式
+        // 11. 关灯模式（修正：黑层 70% 不透明度，底图不再额外调暗）
         // ============================================================
         const toggleBtn = document.getElementById('light-toggle');
         let darkMode = false;
@@ -626,7 +740,8 @@
             canvas.width = 256;
             canvas.height = 256;
             const ctx = canvas.getContext('2d');
-            ctx.fillStyle = 'rgba(0, 0, 0, 180)';
+            // 70% 不透明度的黑色覆盖层
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
             ctx.fillRect(0, 0, 256, 256);
             return canvas;
         }
@@ -662,16 +777,15 @@
             if (darkMode) {
                 toggleBtn.innerHTML = '☀️ 开灯';
                 toggleBtn.classList.add('dark-mode');
-                gaodeLayer.setOpacity(0.4);
+                // 不再调低底图 opacity，由 70% 黑层压暗
             } else {
                 toggleBtn.innerHTML = '🌙 关灯';
                 toggleBtn.classList.remove('dark-mode');
-                gaodeLayer.setOpacity(1.0);
             }
         });
 
         // ============================================================
-        // 11. 启动
+        // 12. 启动
         // ============================================================
         console.log('地图初始化完成，通过 Worker 代理加载 KML...');
         console.log('Worker 地址:', WORKER_URL);
