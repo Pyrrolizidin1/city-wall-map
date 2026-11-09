@@ -436,26 +436,37 @@
         function filterStyle(feature, resolution) {
             const type = feature.get('lineType') || getLineType(feature);
             
-            // 没勾选，返回 null 隐藏要素
+            // 没勾选，直接返回 null 隐藏要素
             if (!selectedTypes.has(type)) {
                 return null;
             }
 
-            // 勾选了：获取原本的样式
-            // 1. 优先尝试获取要素自身的样式
+            // 勾选了，尝试使用它自带的样式（无论是对象还是函数）
             let style = feature.getStyle();
             if (typeof style === 'function') {
                 style = style.call(feature, resolution);
             }
+            
+            // 如果自带样式确实存在，就直接用
             if (style) {
                 return style;
             }
 
-            // 2. 如果要素自身没样式，尝试获取图层原本缓存的样式
-            if (typeof originalLayerStyle === 'function') {
-                return originalLayerStyle.call(feature, resolution);
-            }
-            return originalLayerStyle;
+            // 【终极兜底方案】：如果 OpenLayers 没解析出原样式，我们就给它分配一个默认颜色
+            // 这样能保证要素在勾选状态下绝对能显示出来，形成强烈对比
+            let color = 'rgba(0, 176, 176, 1)'; // 默认青色
+            if (type.startsWith('B')) color = 'rgba(64, 128, 192, 1)'; // 蓝色
+            if (type.startsWith('G')) color = 'rgba(76, 175, 132, 1)'; // 绿色
+            if (type.startsWith('O')) color = 'rgba(224, 123, 58, 1)'; // 橙色
+            if (type.startsWith('P')) color = 'rgba(224, 123, 154, 1)'; // 粉色
+            if (type === 'Yx') color = 'rgba(245, 197, 66, 1)';         // 黄色
+
+            return new ol.style.Style({
+                stroke: new ol.style.Stroke({
+                    color: color,
+                    width: 2
+                })
+            });
         }
 
         // ============================================================
