@@ -19,7 +19,8 @@
             width: 100%;
             height: 100%;
         }
-        /* 加载进度条样式 */
+        
+        /* ========== 加载进度条样式 ========== */
         #progress-bar {
             position: fixed;
             bottom: 20px;
@@ -263,6 +264,8 @@
 </head>
 <body>
     <div id="map"></div>
+    
+    <!-- 进度条与状态提示 -->
     <div id="progress-bar"><div id="progress-fill">0%</div></div>
     <div id="status">准备加载数据...</div>
     
@@ -273,18 +276,14 @@
         <button class="ctrl-btn" id="light-toggle">🌙 关灯</button>
     </div>
     
+    <!-- 返回首页 -->
     <a id="back-home" href="index.html">← 返回首页</a>
 
     <script>
         // ============================================================
-        // 1. 配置：使用 Cloudflare Worker 代理
+        // 1. 配置与坐标转换
         // ============================================================
-        const WORKER_URL = 'https://city-wall-oss-proxy.pyrrolizidin.workers.dev/';
         const KML_FILE = '城址.kmz';
-
-        // ============================================================
-        // 2. 坐标转换函数
-        // ============================================================
         ol.proj.useGeographic();
 
         const a = 6378245.0;
@@ -340,7 +339,7 @@
         }
 
         // ============================================================
-        // 3. 高德底图 & 初始化地图
+        // 2. 初始化地图
         // ============================================================
         const gaodeLayer = new ol.layer.Tile({
             source: new ol.source.XYZ({
@@ -349,12 +348,11 @@
             })
         });
 
-        const defaultCenter = fromLonLat(108.94, 34.34);
         const map = new ol.Map({
             target: 'map',
             layers: [gaodeLayer],
             view: new ol.View({
-                center: defaultCenter,
+                center: fromLonLat(108.94, 34.34),
                 zoom: 10
             })
         });
@@ -364,7 +362,7 @@
         const progressFill = document.getElementById('progress-fill');
 
         // ============================================================
-        // 4. 矢量图层 (纯净版，无筛选)
+        // 3. 业务矢量图层
         // ============================================================
         const vectorLayer = new ol.layer.Vector({
             source: new ol.source.Vector()
@@ -372,7 +370,7 @@
         map.addLayer(vectorLayer);
 
         // ============================================================
-        // 5. 解析 KML
+        // 4. 解析与加载数据
         // ============================================================
         function parseKMLAndAddFeatures(kmlContent) {
             const format = new ol.format.KML({ extractStyles: true });
@@ -402,7 +400,7 @@
                 vectorLayer.getSource().addFeatures(features.slice(addedCount, end));
                 addedCount = end;
 
-                const percent = 55 + Math.round((addedCount / totalCount) * 45);
+                const percent = Math.round(55 + (addedCount / totalCount) * 45);
                 progressFill.style.width = percent + '%';
                 progressFill.innerText = percent + '%';
                 statusDiv.innerText = `已添加 ${addedCount} / ${totalCount} 个要素`;
@@ -421,9 +419,6 @@
             setTimeout(addBatch, 100);
         }
 
-        // ============================================================
-        // 6. 加载数据
-        // ============================================================
         async function loadMapData() {
             try {
                 const response = await fetch(KML_FILE);
@@ -431,6 +426,8 @@
 
                 progressBar.style.display = 'block';
                 progressFill.style.width = '5%';
+                progressFill.innerText = '5%';
+                statusDiv.innerText = '正在下载数据...';
 
                 const reader = response.body.getReader();
                 const chunks = [];
@@ -442,7 +439,10 @@
 
                 const blob = new Blob(chunks);
                 const arrayBuffer = await blob.arrayBuffer();
+                
                 progressFill.style.width = '55%';
+                progressFill.innerText = '55%';
+                statusDiv.innerText = '正在解压...';
 
                 const uint8Array = new Uint8Array(arrayBuffer);
                 const isKMZ = uint8Array[0] === 0x50 && uint8Array[1] === 0x4B;
@@ -454,9 +454,11 @@
                         if (path.toLowerCase().endsWith('.kml')) kmlFile = file;
                     });
                     if (kmlFile) {
+                        statusDiv.innerText = '正在解析 KML...';
                         parseKMLAndAddFeatures(await kmlFile.async('text'));
                     }
                 } else {
+                    statusDiv.innerText = '正在解析 KML...';
                     const decoder = new TextDecoder('utf-8');
                     parseKMLAndAddFeatures(decoder.decode(arrayBuffer));
                 }
@@ -467,7 +469,7 @@
         }
 
         // ============================================================
-        // 7. 弹窗功能 (修复了穿透和卡顿)
+        // 5. 弹窗功能
         // ============================================================
         const popupElement = document.createElement('div');
         popupElement.className = 'ol-popup';
@@ -512,9 +514,7 @@
         });
 
         map.on('pointermove', function(event) {
-            // 测量状态下不改变鼠标指针
-            if (isMeasuring) return;
-            
+            if (isMeasuring) return; 
             const hasFeature = map.hasFeatureAtPixel(event.pixel, {
                 layerFilter: (layer) => layer === vectorLayer
             });
@@ -522,7 +522,7 @@
         });
 
         // ============================================================
-        // 8. 关灯模式 (70% 半透明黑)
+        // 6. 关灯模式
         // ============================================================
         const toggleBtn = document.getElementById('light-toggle');
         let darkMode = false;
@@ -563,13 +563,12 @@
         });
 
         // ============================================================
-        // 9. 测距与测面积功能
+        // 7. 测距与测面积功能 (重写修复版)
         // ============================================================
         let isMeasuring = false;
         let currentMeasureType = null;
         let drawInteraction = null;
 
-        // 测量图层源与样式
         const measureSource = new ol.source.Vector();
         const measureVector = new ol.layer.Vector({
             source: measureSource,
@@ -581,14 +580,14 @@
                     fill: new ol.style.Fill({ color: 'rgba(255, 204, 51, 1)' })
                 })
             }),
-            zIndex: 100 // 保证测量图形在最上层
+            zIndex: 100 
         });
         map.addLayer(measureVector);
 
-        // 提示框
-        const measureTooltipElement = document.createElement('div');
+        // 使用变量，避免常量重赋值报错
+        let measureTooltipElement = document.createElement('div');
         measureTooltipElement.className = 'measure-tooltip';
-        const measureTooltip = new ol.Overlay({
+        let measureTooltip = new ol.Overlay({
             element: measureTooltipElement,
             offset: [0, -15],
             positioning: 'bottom-center',
@@ -596,28 +595,28 @@
         });
         map.addOverlay(measureTooltip);
 
-        // 核心：格式化输出距离/面积
-        const formatLength = function(line) {
-            const length = ol.sphere.getLength(line, {projection: 'EPSG:4326'}); // 使用 WGS84 球体计算
+        function formatLength(line) {
+            const length = ol.sphere.getLength(line, {projection: 'EPSG:4326'});
             if (length > 1000) return (Math.round(length / 1000 * 100) / 100) + ' 公里';
             return (Math.round(length * 100) / 100) + ' 米';
-        };
+        }
 
-        const formatArea = function(polygon) {
+        function formatArea(polygon) {
             const area = ol.sphere.getArea(polygon, {projection: 'EPSG:4326'});
             if (area > 1000000) return (Math.round(area / 1000000 * 100) / 100) + ' 平方公里';
             return (Math.round(area * 100) / 100) + ' 平方米';
-        };
+        }
 
-        // 添加交互逻辑
         function addMeasureInteraction(type) {
-            // 清理旧状态
             if (drawInteraction) {
                 map.removeInteraction(drawInteraction);
-                drawInteraction = null;
             }
             measureSource.clear();
-            measureTooltipElement.parentNode.removeChild(measureTooltipElement);
+            
+            // 修复报错：严格判断 parentNode 是否存在
+            if (measureTooltipElement && measureTooltipElement.parentNode) {
+                measureTooltipElement.parentNode.removeChild(measureTooltipElement);
+            }
             measureTooltip.setPosition(undefined);
 
             currentMeasureType = type;
@@ -639,7 +638,6 @@
             });
             map.addInteraction(drawInteraction);
 
-            // 绘制中实时显示
             drawInteraction.on('drawstart', function(evt) {
                 let sketch = evt.feature;
                 let tooltipCoord = evt.coordinate;
@@ -659,10 +657,9 @@
                 });
             });
 
-            // 绘制结束，保留提示框
             drawInteraction.on('drawend', function() {
                 measureTooltipElement.className = 'measure-tooltip';
-                // 复制一个新提示框给下一个测量用
+                // 为下一次绘制新建提示框，解决了 Assignment to constant 报错
                 measureTooltipElement = document.createElement('div');
                 measureTooltipElement.className = 'measure-tooltip';
                 measureTooltip = new ol.Overlay({
@@ -675,7 +672,6 @@
             });
         }
 
-        // 按钮事件
         const btnLine = document.getElementById('measure-line-btn');
         const btnArea = document.getElementById('measure-area-btn');
 
@@ -686,7 +682,6 @@
 
         btnLine.addEventListener('click', function() {
             if (currentMeasureType === 'line') {
-                // 再次点击取消测量
                 if (drawInteraction) map.removeInteraction(drawInteraction);
                 isMeasuring = false;
                 currentMeasureType = null;
@@ -715,7 +710,7 @@
             addMeasureInteraction('area');
         });
 
-        // 启动
+        // 启动加载
         loadMapData();
     </script>
 </body>
