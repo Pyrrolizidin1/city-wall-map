@@ -347,9 +347,7 @@
         }
 
         function wgs84ToGcj02(lon, lat) {
-            if (outOfChina(lon, lat)) {
-                return [lon, lat];
-            }
+            if (outOfChina(lon, lat)) return [lon, lat];
             let dLat = transformLat(lon - 105.0, lat - 35.0);
             let dLon = transformLon(lon - 105.0, lat - 35.0);
             let radLat = lat / 180.0 * Math.PI;
@@ -358,9 +356,7 @@
             let sqrtMagic = Math.sqrt(magic);
             dLat = (dLat * 180.0) / ((a * (1 - ee)) / (magic * sqrtMagic) * Math.PI);
             dLon = (dLon * 180.0) / (a / sqrtMagic * Math.cos(radLat) * Math.PI);
-            let mgLat = lat + dLat;
-            let mgLon = lon + dLon;
-            return [mgLon, mgLat];
+            return [lon + dLon, lat + dLat];
         }
 
         function outOfChina(lon, lat) {
@@ -369,25 +365,18 @@
 
         function convertCoordsRecursive(coordArray) {
             if (Array.isArray(coordArray) && coordArray.length > 0 && typeof coordArray[0] === 'number') {
-                const lon = coordArray[0];
-                const lat = coordArray[1];
-                const gcj = wgs84ToGcj02(lon, lat);
-                if (coordArray.length === 3) {
-                    return [gcj[0], gcj[1], coordArray[2]];
-                }
-                return gcj;
+                const gcj = wgs84ToGcj02(coordArray[0], coordArray[1]);
+                return coordArray.length === 3 ? [gcj[0], gcj[1], coordArray[2]] : gcj;
             } else if (Array.isArray(coordArray)) {
                 return coordArray.map(item => convertCoordsRecursive(item));
-            } else {
-                return coordArray;
             }
+            return coordArray;
         }
 
         function fromLonLat(lon, lat) {
             const x = (lon * 20037508.34) / 180;
             const y = Math.log(Math.tan(((90 + lat) * Math.PI) / 360)) / (Math.PI / 180);
-            const yMercator = (y * 20037508.34) / 180;
-            return [x, yMercator];
+            return [x, (y * 20037508.34) / 180];
         }
 
         // ============================================================
@@ -424,49 +413,7 @@
         function getLineType(feature) {
             const desc = feature.get('description') || feature.get('Description') || '';
             const m = desc.match(/\*线型[:：]\s*([A-Za-z]+)/);
-            if (m && ALL_TYPES.indexOf(m[1]) !== -1) {
-                return m[1];
-            }
-            return OTHER_KEY;
-        }
-
-        // 全局变量，用于暂存 KML 原本的样式函数
-        let originalLayerStyle = null;
-
-        function filterStyle(feature, resolution) {
-            const type = feature.get('lineType') || getLineType(feature);
-            
-            // 没勾选，直接返回 null 隐藏要素
-            if (!selectedTypes.has(type)) {
-                return null;
-            }
-
-            // 勾选了，尝试使用它自带的样式（无论是对象还是函数）
-            let style = feature.getStyle();
-            if (typeof style === 'function') {
-                style = style.call(feature, resolution);
-            }
-            
-            // 如果自带样式确实存在，就直接用
-            if (style) {
-                return style;
-            }
-
-            // 【终极兜底方案】：如果 OpenLayers 没解析出原样式，我们就给它分配一个默认颜色
-            // 这样能保证要素在勾选状态下绝对能显示出来，形成强烈对比
-            let color = 'rgba(0, 176, 176, 1)'; // 默认青色
-            if (type.startsWith('B')) color = 'rgba(64, 128, 192, 1)'; // 蓝色
-            if (type.startsWith('G')) color = 'rgba(76, 175, 132, 1)'; // 绿色
-            if (type.startsWith('O')) color = 'rgba(224, 123, 58, 1)'; // 橙色
-            if (type.startsWith('P')) color = 'rgba(224, 123, 154, 1)'; // 粉色
-            if (type === 'Yx') color = 'rgba(245, 197, 66, 1)';         // 黄色
-
-            return new ol.style.Style({
-                stroke: new ol.style.Stroke({
-                    color: color,
-                    width: 2
-                })
-            });
+            return (m && ALL_TYPES.includes(m[1])) ? m[1] : OTHER_KEY;
         }
 
         // ============================================================
@@ -474,23 +421,53 @@
         // ============================================================
         const vectorLayer = new ol.layer.Vector({
             source: new ol.source.Vector(),
-            style: filterStyle
+            style: function(feature, resolution) {
+                const type = feature.get('lineType') || getLineType(feature);
+                
+                // 核心逻辑：没勾选，直接返回 null 隐藏要素
+                if (!selectedTypes.has(type)) {
+                    return null;
+                }
+
+                // 尝试使用原始样式
+                let style = feature.getStyle();
+                if (typeof style === 'function') {
+                    style = style.call(feature, resolution);
+                }
+                if (style) {
+                    return style;
+                }
+
+                // 终极兜底：如果原始样式丢了，强行给颜色，保证肯定看得见
+                let color = 'rgba(0, 176, 176, 1)'; 
+                if (type.startsWith('B')) color = 'rgba(64, 128, 192, 1)'; 
+                if (type.startsWith('G')) color = 'rgba(76, 175, 132, 1)'; 
+                if (type.startsWith('O')) color = 'rgba(224, 123, 58, 1)'; 
+                if (type.startsWith('P')) color = 'rgba(224, 123, 154, 1)'; 
+                if (type === 'Yx') color = 'rgba(245, 197, 66, 1)';         
+
+                return new ol.style.Style({
+                    stroke: new ol.style.Stroke({ color: color, width: 2 })
+                });
+            }
         });
         map.addLayer(vectorLayer);
 
-        // 侧栏勾选监听 (改为绑定 change 事件，性能更好且防穿透)
+        // 侧栏勾选监听
         document.getElementById('filter-panel').addEventListener('change', function(e) {
             if (e.target && e.target.classList.contains('type-filter')) {
-                const val = e.target.value;
                 if (e.target.checked) {
-                    selectedTypes.add(val);
+                    selectedTypes.add(e.target.value);
                 } else {
-                    selectedTypes.delete(val);
+                    selectedTypes.delete(e.target.value);
                 }
                 
                 console.log('当前选中:', [...selectedTypes]);
                 
+                // 最暴力的强制重绘：通知数据源过滤并重载，然后重绘图层
+                vectorLayer.getSource().changed();
                 vectorLayer.changed();
+                map.render();
             }
         });
 
@@ -509,18 +486,10 @@
                 return;
             }
 
-            // 关键：获取 OpenLayers KML 解析器底层的样式函数（防止默认样式被顶替）
-            // 这个是 KML 带有外部 styleUrl 时 OL 自动生成的默认样式函数
-            if (features.length > 0 && features[0].getStyleFunction()) {
-                originalLayerStyle = features[0].getStyleFunction();
-            }
-
-            features.forEach(function(feature, i) {
+            features.forEach(function(feature) {
                 const geom = feature.getGeometry();
                 if (geom) {
-                    let coords = geom.getCoordinates();
-                    const newCoords = convertCoordsRecursive(coords);
-                    geom.setCoordinates(newCoords);
+                    geom.setCoordinates(convertCoordsRecursive(geom.getCoordinates()));
                 }
                 feature.set('lineType', getLineType(feature));
             });
@@ -531,8 +500,7 @@
 
             function addBatch() {
                 const end = Math.min(addedCount + batchSize, totalCount);
-                const batch = features.slice(addedCount, end);
-                vectorLayer.getSource().addFeatures(batch);
+                vectorLayer.getSource().addFeatures(features.slice(addedCount, end));
                 addedCount = end;
 
                 const percent = 55 + Math.round((addedCount / totalCount) * 45);
@@ -545,7 +513,6 @@
                 } else {
                     statusDiv.innerText = `✅ 加载完成！共 ${totalCount} 个要素`;
                     setTimeout(() => { progressBar.style.display = 'none'; }, 3000);
-
                     const extent = vectorLayer.getSource().getExtent();
                     if (extent && !isNaN(extent[0])) {
                         map.getView().fit(extent, { padding: [50, 50, 50, 50] });
@@ -588,8 +555,7 @@
                         if (path.toLowerCase().endsWith('.kml')) kmlFile = file;
                     });
                     if (kmlFile) {
-                        const kmlContent = await kmlFile.async('text');
-                        parseKMLAndAddFeatures(kmlContent);
+                        parseKMLAndAddFeatures(await kmlFile.async('text'));
                     }
                 } else {
                     const decoder = new TextDecoder('utf-8');
