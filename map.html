@@ -437,17 +437,30 @@
             return OTHER_KEY;
         }
 
-        // 样式函数：未勾选线型返回 null（不渲染），否则使用 KML 自带样式
+        // 样式函数：保留原始样式，未勾选则返回 null
         function filterStyle(feature, resolution) {
             const type = feature.get('lineType') || getLineType(feature);
+            
+            // 1. 如果没勾选，直接返回 null 隐藏
             if (!selectedTypes.has(type)) {
                 return null;
             }
-            const s = feature.getStyle();
-            if (s) {
-                return typeof s === 'function' ? s(feature, resolution) : s;
+
+            // 2. 如果勾选了，返回 KML 原本的样式
+            // 注意：OpenLayers 的 KML 解析器通常会把样式存在内部的 styleFunction 中
+            const styleFunction = feature.getStyleFunction();
+            if (styleFunction) {
+                const styles = styleFunction.call(feature, resolution);
+                return styles || null;
             }
-            return undefined; // 交给默认样式
+            
+            // 如果没找到 styleFunction，再尝试 getStyle
+            let style = feature.getStyle();
+            if (typeof style === 'function') {
+                style = style.call(feature, resolution);
+            }
+            
+            return style || undefined; 
         }
 
         // ============================================================
