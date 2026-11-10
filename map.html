@@ -51,7 +51,6 @@
         }
         #sidebar.collapsed { transform: translateX(-360px); }
         
-        /* 展开/折叠按钮 (移到中间、小一点、白色) */
         #sidebar-toggle {
             position: absolute; top: 50%; right: -14px; transform: translateY(-50%);
             width: 28px; height: 48px; background: #ffffff; color: #333;
@@ -130,30 +129,24 @@
            移动端专属适配 (完美版)
            ============================================================ */
         @media (max-width: 768px) {
-            /* 底部按钮移动 */
             #top-controls {
                 top: auto; bottom: 20px; left: 10px; right: 10px; justify-content: space-between; gap: 5px;
             }
             .ctrl-btn {
                 flex: 1; padding: 12px 0; font-size: 14px; display: flex; justify-content: center; align-items: center;
             }
-            
-            /* 移动端侧边栏设为占满全屏面板 */
             #sidebar {
                 top: 10px; left: 10px; bottom: 75px; width: calc(100vw - 20px); max-width: none;
             }
             #sidebar.collapsed {
-                transform: translateX(-100%); /* 完全藏在左侧外 */
+                transform: translateX(-100%); 
             }
-            /* 折叠按钮适配移动端 */
             #sidebar-toggle {
                 width: 32px; height: 54px; right: -24px; font-size: 16px; border-radius: 0 8px 8px 0;
             }
             #sidebar.collapsed #sidebar-toggle {
                 right: -44px; border-radius: 8px; box-shadow: 2px 0 12px rgba(0,0,0,0.2);
             }
-
-            /* 移动端其它元素 */
             #back-home {
                 bottom: auto; top: 20px; right: 20px; left: auto;
             }
@@ -169,7 +162,6 @@
 <body>
     <div id="map"></div>
 
-    <!-- ================= 搜索侧边栏 ================= -->
     <div id="sidebar">
         <button id="sidebar-toggle" title="折叠/展开">◀</button>
         <div class="search-box">
@@ -193,7 +185,7 @@
 
     <script>
         // ============================================================
-        // 1. 全局配置
+        // 1. 全局配置与坐标转换
         // ============================================================
         const KML_FILE = '城址.kmz';
         const AMAP_KEY = 'b9989c3b248bd63e3358e0d92dc122f7'; 
@@ -286,10 +278,63 @@
         const progressFill = document.getElementById('progress-fill');
 
         // ============================================================
-        // 3. 业务矢量图层 & 数据索引
+        // 3. 底板与夜视模式 (新增 20% 默认遮罩)
+        // ============================================================
+        // 动态生成黑色瓦片
+        function createBlackTile(opacity) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
+            ctx.fillRect(0, 0, 256, 256);
+            return canvas.toDataURL('image/png');
+        }
+
+        let currentBlackTileDataUrl = createBlackTile(0.2); // 默认 20% 透明度
+
+        const shadowLayer = new ol.layer.Tile({
+            source: new ol.source.TileImage({
+                tileUrlFunction: function() { return currentBlackTileDataUrl; },
+                projection: 'EPSG:3857',
+                tileGrid: new ol.tilegrid.TileGrid({
+                    extent: [-20037508.34, -20037508.34, 20037508.34, 20037508.34],
+                    origin: [-20037508.34, 20037508.34],
+                    resolutions: [156543.03392804097, 78271.51696402048, 39135.75848201024, 19567.87924100512, 9783.93962050256, 4891.96981025128, 2445.98490512564, 1222.99245256282, 611.49622628141, 305.748113140705, 152.8740565703525, 76.43702828517625, 38.21851414258813, 19.109257071294063, 9.554628535647032, 4.777314267823516, 2.388657133911758, 1.194328566955879, 0.5971642834779395, 0.29858214173896974]
+                })
+            }),
+            opacity: 1.0, 
+            visible: true, // 默认显示！
+            zIndex: 1
+        });
+        map.addLayer(shadowLayer);
+
+        const toggleBtn = document.getElementById('light-toggle');
+        let darkMode = false;
+
+        toggleBtn.addEventListener('click', function() {
+            darkMode = !darkMode;
+            
+            if (darkMode) {
+                // 变成深色模式 (70% 黑)
+                currentBlackTileDataUrl = createBlackTile(0.7);
+                shadowLayer.getSource().refresh(); // 强制刷新瓦片
+                toggleBtn.innerHTML = '☀️ 开灯';
+                toggleBtn.classList.add('active');
+            } else {
+                // 恢复默认 20% 模式
+                currentBlackTileDataUrl = createBlackTile(0.2);
+                shadowLayer.getSource().refresh();
+                toggleBtn.innerHTML = '🌙 关灯';
+                toggleBtn.classList.remove('active');
+            }
+        });
+
+        // ============================================================
+        // 4. 业务矢量图层 & 数据索引
         // ============================================================
         const vectorLayer = new ol.layer.Vector({ source: new ol.source.Vector() });
         map.addLayer(vectorLayer);
+        vectorLayer.setZIndex(2);
 
         let featureSearchIndex = []; 
 
@@ -305,13 +350,12 @@
 
             const totalCount = features.length;
             let addedCount = 0;
-            const batchSize = 200; // 每批 200 个，防止移动端卡死
+            const batchSize = 200; 
 
             function addBatch() {
                 const end = Math.min(addedCount + batchSize, totalCount);
                 const batch = features.slice(addedCount, end);
                 
-                // 分批进行坐标转换，彻底解决移动端卡死
                 batch.forEach(function(feature) {
                     const geom = feature.getGeometry();
                     if (geom) {
@@ -398,14 +442,13 @@
         }
 
         // ============================================================
-        // 4. 侧边栏与搜索功能
+        // 5. 侧边栏与搜索功能
         // ============================================================
         const sidebar = document.getElementById('sidebar');
         const sidebarToggle = document.getElementById('sidebar-toggle');
         const searchInput = document.getElementById('search-input');
         const searchResultsDiv = document.getElementById('search-results');
 
-        // 如果屏幕小于 768px，默认收起侧边栏
         if (window.innerWidth <= 768) {
             sidebar.classList.add('collapsed');
             sidebarToggle.innerHTML = '▶';
@@ -515,7 +558,7 @@
         }
 
         // ============================================================
-        // 5. 弹窗功能
+        // 6. 弹窗功能
         // ============================================================
         const popupElement = document.createElement('div');
         popupElement.className = 'ol-popup';
@@ -559,52 +602,46 @@
             if (!featureFound) popup.setPosition(undefined);
         });
 
-        map.on('pointermove', function(event) {
-            if (isMeasuring) return; 
-            const hasFeature = map.hasFeatureAtPixel(event.pixel, { layerFilter: (layer) => layer === vectorLayer });
-            map.getTargetElement().style.cursor = hasFeature ? 'pointer' : '';
-        });
-
         // ============================================================
-        // 6. 关灯模式
+        // 7. 鼠标悬停高亮逻辑
         // ============================================================
-        const toggleBtn = document.getElementById('light-toggle');
-        let darkMode = false;
-
-        function createBlackTile() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 256; canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-            ctx.fillRect(0, 0, 256, 256);
-            return canvas;
-        }
-
-        const blackTileDataUrl = createBlackTile().toDataURL('image/png');
-        const shadowLayer = new ol.layer.Tile({
-            source: new ol.source.TileImage({
-                tileUrlFunction: function() { return blackTileDataUrl; },
-                projection: 'EPSG:3857',
-                tileGrid: new ol.tilegrid.TileGrid({
-                    extent: [-20037508.34, -20037508.34, 20037508.34, 20037508.34],
-                    origin: [-20037508.34, 20037508.34],
-                    resolutions: [156543.03392804097, 78271.51696402048, 39135.75848201024, 19567.87924100512, 9783.93962050256, 4891.96981025128, 2445.98490512564, 1222.99245256282, 611.49622628141, 305.748113140705, 152.8740565703525, 76.43702828517625, 38.21851414258813, 19.109257071294063, 9.554628535647032, 4.777314267823516, 2.388657133911758, 1.194328566955879, 0.5971642834779395, 0.29858214173896974]
-                })
+        let lastHighlightedFeature = null;
+        let highlightOverlay = new ol.layer.Vector({
+            source: new ol.source.Vector(),
+            style: new ol.style.Style({
+                stroke: new ol.style.Stroke({ color: '#ffffff', width: 4, lineJoin: 'round', lineCap: 'round' })
             }),
-            opacity: 1.0, visible: false, zIndex: 1
+            zIndex: 50
         });
-        map.addLayer(shadowLayer);
-        vectorLayer.setZIndex(2);
+        map.addLayer(highlightOverlay);
 
-        toggleBtn.addEventListener('click', function() {
-            darkMode = !darkMode;
-            shadowLayer.setVisible(darkMode);
-            toggleBtn.innerHTML = darkMode ? '☀️ 开灯' : '🌙 关灯';
-            toggleBtn.classList.toggle('active', darkMode);
+        map.on('pointermove', function(event) {
+            if (isMeasuring) {
+                map.getTargetElement().style.cursor = 'crosshair';
+                return; 
+            }
+            if (event.dragging) return;
+
+            const feature = map.forEachFeatureAtPixel(event.pixel, function(feat, layer) {
+                if (layer === vectorLayer) return feat;
+            });
+
+            if (feature !== lastHighlightedFeature) {
+                highlightOverlay.getSource().clear();
+                lastHighlightedFeature = feature;
+                
+                if (feature) {
+                    const highlightFeature = new ol.Feature(feature.getGeometry().clone());
+                    highlightOverlay.getSource().addFeature(highlightFeature);
+                    map.getTargetElement().style.cursor = 'pointer';
+                } else {
+                    map.getTargetElement().style.cursor = '';
+                }
+            }
         });
 
         // ============================================================
-        // 7. 测距与测面积
+        // 8. 测距与测面积
         // ============================================================
         let isMeasuring = false;
         let currentMeasureType = null;
