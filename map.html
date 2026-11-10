@@ -248,7 +248,10 @@
             opacity: 0.9;
             white-space: nowrap;
             font-size: 12px;
-            pointer-events: none;
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
         .measure-tooltip:before {
             border-top: 6px solid rgba(0, 0, 0, 0.7);
@@ -259,6 +262,25 @@
             bottom: -6px;
             margin-left: -7px;
             left: 50%;
+        }
+        /* 单条删除按钮样式 */
+        .measure-delete-btn {
+            background: #ff4d4f;
+            color: white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 12px;
+            line-height: 1;
+            transition: background 0.2s;
+        }
+        .measure-delete-btn:hover {
+            background: #ff7875;
         }
     </style>
 </head>
@@ -496,6 +518,8 @@
         });
 
         map.on('click', function(event) {
+            if (isMeasuring) return;
+
             let featureFound = false;
             map.forEachFeatureAtPixel(event.pixel, function(feature, layer) {
                 if (layer === vectorLayer) {
@@ -563,7 +587,7 @@
         });
 
         // ============================================================
-        // 7. 测距与测面积功能 (重写修复版)
+        // 7. 测距与测面积功能 (完美修复版)
         // ============================================================
         let isMeasuring = false;
         let currentMeasureType = null;
@@ -584,16 +608,16 @@
         });
         map.addLayer(measureVector);
 
-        // 使用变量，避免常量重赋值报错
-        let measureTooltipElement = document.createElement('div');
-        measureTooltipElement.className = 'measure-tooltip';
-        let measureTooltip = new ol.Overlay({
-            element: measureTooltipElement,
+        // 活动中的动态提示框（解决第一次不显示的问题）
+        let activeTooltipElement = document.createElement('div');
+        activeTooltipElement.className = 'measure-tooltip';
+        let activeTooltip = new ol.Overlay({
+            element: activeTooltipElement,
             offset: [0, -15],
             positioning: 'bottom-center',
             stopEvent: false
         });
-        map.addOverlay(measureTooltip);
+        map.addOverlay(activeTooltip);
 
         function formatLength(line) {
             const length = ol.sphere.getLength(line, {projection: 'EPSG:4326'});
@@ -607,17 +631,28 @@
             return (Math.round(area * 100) / 100) + ' 平方米';
         }
 
+        // 点击单条轨迹的删除按钮
+        let deleteTimeout;
+        document.body.addEventListener('click', function(e) {
+            if (e.target && e.target.classList.contains('measure-delete-btn')) {
+                clearTimeout(deleteTimeout);
+                // 使用短延迟，防止用户拖拽地图时误触
+                deleteTimeout = setTimeout(() => {
+                    const featureId = e.target.getAttribute('data-id');
+                    const feature = measureSource.getFeatureById(featureId);
+                    if (feature) {
+                        const tooltip = feature.get('tooltip');
+                        if (tooltip) map.removeOverlay(tooltip);
+                        measureSource.removeFeature(feature);
+                    }
+                }, 100);
+            }
+        });
+
         function addMeasureInteraction(type) {
-            if (drawInteraction) {
-                map.removeInteraction(drawInteraction);
-            }
+            if (drawInteraction) map.removeInteraction(drawInteraction);
             measureSource.clear();
-            
-            // 修复报错：严格判断 parentNode 是否存在
-            if (measureTooltipElement && measureTooltipElement.parentNode) {
-                measureTooltipElement.parentNode.removeChild(measureTooltipElement);
-            }
-            measureTooltip.setPosition(undefined);
+            activeTooltip.setPosition(undefined);
 
             currentMeasureType = type;
             isMeasuring = true;
@@ -652,23 +687,37 @@
                         output = formatLength(geom);
                         tooltipCoord = geom.getLastCoordinate();
                     }
-                    measureTooltipElement.innerHTML = output;
-                    measureTooltip.setPosition(tooltipCoord);
+                    activeTooltipElement.innerHTML = output;
+                    activeTooltip.setPosition(tooltipCoord);
                 });
             });
 
-            drawInteraction.on('drawend', function() {
-                measureTooltipElement.className = 'measure-tooltip';
-                // 为下一次绘制新建提示框，解决了 Assignment to constant 报错
-                measureTooltipElement = document.createElement('div');
-                measureTooltipElement.className = 'measure-tooltip';
-                measureTooltip = new ol.Overlay({
-                    element: measureTooltipElement,
+            drawInteraction.on('drawend', function(evt) {
+                const feature = evt.feature;
+                const featureId = 'measure_' + Date.now();
+                feature.setId(featureId);
+
+                // 创建静态提示框并带删除按钮
+                let tooltipEl = document.createElement('div');
+                tooltipEl.className = 'measure-tooltip';
+                const currentText = activeTooltipElement.innerHTML;
+                tooltipEl.innerHTML = `<span>${currentText}</span><span class="measure-delete-btn" data-id="${featureId}">×</span>`;
+                
+                let staticTooltip = new ol.Overlay({
+                    element: tooltipEl,
                     offset: [0, -15],
                     positioning: 'bottom-center',
-                    stopEvent: false
+                    stopEvent: true // 允许点击按钮
                 });
-                map.addOverlay(measureTooltip);
+                map.addOverlay(staticTooltip);
+                
+                // 锁定提示框位置
+                const geom = feature.getGeometry();
+                let coord = geom instanceof ol.geom.Polygon ? geom.getInteriorPoint().getCoordinates() : geom.getLastCoordinate();
+                staticTooltip.setPosition(coord);
+
+                feature.set('tooltip', staticTooltip);
+                activeTooltip.setPosition(undefined);
             });
         }
 
@@ -680,14 +729,18 @@
             btnArea.classList.remove('active');
         }
 
+        function stopMeasuring() {
+            if (drawInteraction) map.removeInteraction(drawInteraction);
+            isMeasuring = false;
+            currentMeasureType = null;
+            resetButtons();
+            map.getTargetElement().style.cursor = '';
+            activeTooltip.setPosition(undefined);
+        }
+
         btnLine.addEventListener('click', function() {
             if (currentMeasureType === 'line') {
-                if (drawInteraction) map.removeInteraction(drawInteraction);
-                isMeasuring = false;
-                currentMeasureType = null;
-                resetButtons();
-                map.getTargetElement().style.cursor = '';
-                measureSource.clear();
+                stopMeasuring();
                 return;
             }
             resetButtons();
@@ -697,12 +750,7 @@
 
         btnArea.addEventListener('click', function() {
             if (currentMeasureType === 'area') {
-                if (drawInteraction) map.removeInteraction(drawInteraction);
-                isMeasuring = false;
-                currentMeasureType = null;
-                resetButtons();
-                map.getTargetElement().style.cursor = '';
-                measureSource.clear();
+                stopMeasuring();
                 return;
             }
             resetButtons();
