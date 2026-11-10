@@ -126,17 +126,8 @@
         .measure-delete-btn:hover { background: #ff7875; }
 
         /* ============================================================
-           新增：底图视觉增强滤镜
+           移动端专属适配
            ============================================================ */
-        /* 默认状态：复古泛黄纸质感（降低一点亮度，增加复古色调） */
-        .ol-layer canvas {
-            filter: sepia(0.3) contrast(1.1) brightness(0.95) !important;
-        }
-        /* 关灯状态：暗夜模式（极暗） */
-        #map.dark-mode .ol-layer canvas {
-            filter: invert(1) hue-rotate(180deg) brightness(0.7) contrast(0.9) !important;
-        }
-
         @media (max-width: 768px) {
             #top-controls {
                 top: auto; bottom: 20px; left: 10px; right: 10px; justify-content: space-between; gap: 5px;
@@ -590,23 +581,44 @@
         });
 
         // ============================================================
-        // 7. 关灯模式 (利用 CSS Filter 实现)
+        // 7. 关灯模式 (恢复 70% 纯黑遮罩)
         // ============================================================
         const toggleBtn = document.getElementById('light-toggle');
         let darkMode = false;
 
+        // 创建黑色遮罩层
+        function createBlackTile() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(0, 0, 256, 256);
+            return canvas;
+        }
+
+        const blackTileDataUrl = createBlackTile().toDataURL('image/png');
+        const shadowLayer = new ol.layer.Tile({
+            source: new ol.source.TileImage({
+                tileUrlFunction: function() { return blackTileDataUrl; },
+                projection: 'EPSG:3857',
+                tileGrid: new ol.tilegrid.TileGrid({
+                    extent: [-20037508.34, -20037508.34, 20037508.34, 20037508.34],
+                    origin: [-20037508.34, 20037508.34],
+                    resolutions: [156543.03392804097, 78271.51696402048, 39135.75848201024, 19567.87924100512, 9783.93962050256, 4891.96981025128, 2445.98490512564, 1222.99245256282, 611.49622628141, 305.748113140705, 152.8740565703525, 76.43702828517625, 38.21851414258813, 19.109257071294063, 9.554628535647032, 4.777314267823516, 2.388657133911758, 1.194328566955879, 0.5971642834779395, 0.29858214173896974]
+                })
+            }),
+            opacity: 1.0, 
+            visible: false, // 默认隐藏，不干扰白天效果
+            zIndex: 1
+        });
+        map.addLayer(shadowLayer);
+        vectorLayer.setZIndex(2);
+
         toggleBtn.addEventListener('click', function() {
             darkMode = !darkMode;
-            if (darkMode) {
-                // 在 map 容器上加上 dark-mode 类名，触发 CSS 滤镜
-                document.getElementById('map').classList.add('dark-mode');
-                toggleBtn.innerHTML = '☀️ 开灯';
-                toggleBtn.classList.add('active');
-            } else {
-                document.getElementById('map').classList.remove('dark-mode');
-                toggleBtn.innerHTML = '🌙 关灯';
-                toggleBtn.classList.remove('active');
-            }
+            shadowLayer.setVisible(darkMode);
+            toggleBtn.innerHTML = darkMode ? '☀️ 开灯' : '🌙 关灯';
+            toggleBtn.classList.toggle('active', darkMode);
         });
 
         // ============================================================
