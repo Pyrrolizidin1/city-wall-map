@@ -2,12 +2,10 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <!-- 新增：适配移动端视口，禁止用户双击缩放页面（保留双指捏合缩放地图） -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>城墙城址数据集</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css" />
     <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
-    <!-- 引入 JSZip（解压 KMZ） -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         body, html {
@@ -16,7 +14,6 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            /* 防止手机端长按选中文字或弹出菜单 */
             -webkit-touch-callout: none;
             -webkit-user-select: none;
             user-select: none;
@@ -26,7 +23,7 @@
             height: 100%;
         }
         
-        /* ========== 加载进度条样式 ========== */
+        /* ========== 加载进度条 ========== */
         #progress-bar {
             position: fixed;
             bottom: 20px;
@@ -62,7 +59,7 @@
             font-family: monospace;
         }
         
-        /* ========== 顶部操作按钮组 ========== */
+        /* ========== 顶部右侧控制按钮组 ========== */
         #top-controls {
             position: fixed;
             top: 20px;
@@ -71,7 +68,6 @@
             display: flex;
             gap: 10px;
         }
-        
         .ctrl-btn {
             padding: 10px 18px;
             background: rgba(30, 30, 30, 0.85);
@@ -97,10 +93,121 @@
             border-color: #cbb77a;
         }
 
-        /* ========== 返回首页按钮 ========== */
-        #back-home {
+        /* ========== 搜索侧边栏 ========== */
+        #sidebar {
             position: fixed;
             top: 20px;
+            left: 20px;
+            bottom: 80px;
+            width: 320px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            z-index: 1100;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateX(0);
+        }
+        #sidebar.collapsed {
+            transform: translateX(-360px);
+        }
+        /* 折叠/展开按钮 */
+        #sidebar-toggle {
+            position: absolute;
+            top: 15px;
+            right: -16px;
+            width: 32px;
+            height: 32px;
+            background: #3d352a;
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            z-index: 10;
+            font-weight: bold;
+            font-size: 16px;
+            transition: background 0.2s;
+        }
+        #sidebar-toggle:hover {
+            background: #5a4d3e;
+        }
+        /* 搜索框区域 */
+        .search-box {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .search-box input {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 14px;
+            outline: none;
+            box-sizing: border-box;
+            background: #f8f8f8;
+            transition: border-color 0.2s;
+        }
+        .search-box input:focus {
+            border-color: #bbaa92;
+            background: #fff;
+        }
+        /* 搜索结果区域 */
+        .search-results {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 0;
+        }
+        .search-results::-webkit-scrollbar { width: 6px; }
+        .search-results::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+        
+        .result-section-title {
+            padding: 8px 15px;
+            font-size: 12px;
+            color: #888;
+            font-weight: bold;
+            background: #f9f9f9;
+            position: sticky;
+            top: 0;
+        }
+        .result-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .result-item:hover {
+            background: #f0f0f0;
+        }
+        .result-item .title {
+            font-size: 14px;
+            color: #333;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .result-item .desc {
+            font-size: 12px;
+            color: #777;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .no-result {
+            padding: 15px;
+            font-size: 13px;
+            color: #999;
+            text-align: center;
+        }
+
+        /* ========== 返回首页 ========== */
+        #back-home {
+            position: fixed;
+            bottom: 20px;
             left: 20px;
             z-index: 1100;
             padding: 8px 16px;
@@ -115,12 +222,9 @@
             font-family: 'Noto Serif SC', serif;
             text-decoration: none;
         }
-        #back-home:hover {
-            background: rgba(60, 60, 60, 0.9);
-            border-color: #aaa;
-        }
+        #back-home:hover { background: rgba(60, 60, 60, 0.9); border-color: #aaa; }
 
-        /* ========== 弹窗样式 ========== */
+        /* ========== 弹窗 (复用之前的样式) ========== */
         .ol-popup {
             position: absolute;
             background-color: white;
@@ -136,227 +240,93 @@
             overflow: hidden;
         }
         .ol-popup:after, .ol-popup:before {
-            top: 100%;
-            border: solid transparent;
-            content: " ";
-            height: 0;
-            width: 0;
-            position: absolute;
-            pointer-events: none;
+            top: 100%; border: solid transparent; content: " "; height: 0; width: 0; position: absolute; pointer-events: none;
         }
-        .ol-popup:after {
-            border-top-color: white;
-            border-width: 10px;
-            left: 48px;
-            margin-left: -10px;
-        }
-        .ol-popup:before {
-            border-top-color: #ccc;
-            border-width: 11px;
-            left: 48px;
-            margin-left: -11px;
-        }
-        
-        .popup-header {
-            background: #f5f5f5;
-            padding: 10px 15px;
-            border-bottom: 1px solid #ddd;
-            position: relative;
-        }
-        .popup-title {
-            font-weight: bold;
-            font-size: 15px;
-            color: #333;
-            padding-right: 25px;
-            word-break: break-word;
-        }
+        .ol-popup:after { border-top-color: white; border-width: 10px; left: 48px; margin-left: -10px; }
+        .ol-popup:before { border-top-color: #ccc; border-width: 11px; left: 48px; margin-left: -11px; }
+        .popup-header { background: #f5f5f5; padding: 10px 15px; border-bottom: 1px solid #ddd; position: relative; }
+        .popup-title { font-weight: bold; font-size: 15px; color: #333; padding-right: 25px; word-break: break-word; }
         .popup-closer {
-            text-decoration: none;
-            position: absolute;
-            top: 8px;
-            right: 12px;
-            font-size: 20px;
-            font-weight: bold;
-            color: #999;
-            line-height: 1;
-            cursor: pointer;
+            text-decoration: none; position: absolute; top: 8px; right: 12px; font-size: 20px; font-weight: bold; color: #999; line-height: 1; cursor: pointer;
         }
-        .popup-closer:hover {
-            color: #333;
-        }
-        
-        .popup-content-wrapper {
-            padding: 12px 15px;
-            max-height: 300px;
-            overflow-y: auto;
-            background: white;
-            /* 允许用户复制弹窗里的文字 */
-            -webkit-user-select: text;
-            user-select: text;
-        }
-        .popup-content {
-            font-size: 13px;
-            line-height: 1.6;
-            color: #444;
-            word-wrap: break-word;
-            white-space: normal;
-        }
-        .popup-content p {
-            margin: 0 0 8px 0;
-        }
-        .popup-content br {
-            display: block;
-            content: "";
-            margin: 4px 0;
-        }
-        .popup-content table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 8px 0;
-            font-size: 12px;
-        }
-        .popup-content th, .popup-content td {
-            border: 1px solid #ddd;
-            padding: 5px;
-            text-align: left;
-        }
-        .popup-content th {
-            background-color: #f5f5f5;
-        }
-        .popup-content ul, .popup-content ol {
-            margin: 5px 0;
-            padding-left: 20px;
-        }
-        .popup-content img {
-            max-width: 100%;
-            height: auto;
-        }
-        
-        .popup-content-wrapper::-webkit-scrollbar {
-            width: 6px;
-        }
-        .popup-content-wrapper::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 3px;
-        }
-        .popup-content-wrapper::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
-            border-radius: 3px;
-        }
-        .popup-content-wrapper::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8;
-        }
+        .popup-content-wrapper { padding: 12px 15px; max-height: 300px; overflow-y: auto; background: white; user-select: text; }
+        .popup-content { font-size: 13px; line-height: 1.6; color: #444; word-wrap: break-word; white-space: normal; }
         
         /* ========== 测量提示框 ========== */
         .measure-tooltip {
-            position: relative;
-            background: rgba(0, 0, 0, 0.7);
-            border-radius: 4px;
-            color: white;
-            padding: 4px 8px;
-            opacity: 0.9;
-            white-space: nowrap;
-            font-size: 12px;
-            pointer-events: auto;
-            display: flex;
-            align-items: center;
-            gap: 6px;
+            position: relative; background: rgba(0, 0, 0, 0.7); border-radius: 4px; color: white; padding: 4px 8px; opacity: 0.9;
+            white-space: nowrap; font-size: 12px; pointer-events: auto; display: flex; align-items: center; gap: 6px;
         }
         .measure-tooltip:before {
-            border-top: 6px solid rgba(0, 0, 0, 0.7);
-            border-right: 6px solid transparent;
-            border-left: 6px solid transparent;
-            content: "";
-            position: absolute;
-            bottom: -6px;
-            margin-left: -7px;
-            left: 50%;
+            border-top: 6px solid rgba(0, 0, 0, 0.7); border-right: 6px solid transparent; border-left: 6px solid transparent;
+            content: ""; position: absolute; bottom: -6px; margin-left: -7px; left: 50%;
         }
-        /* 单条删除按钮样式 */
         .measure-delete-btn {
-            background: #ff4d4f;
-            color: white;
-            border-radius: 50%;
-            width: 16px;
-            height: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 12px;
-            line-height: 1;
-            transition: background 0.2s;
+            background: #ff4d4f; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-weight: bold; font-size: 12px; line-height: 1; transition: background 0.2s;
         }
-        .measure-delete-btn:hover {
-            background: #ff7875;
-        }
+        .measure-delete-btn:hover { background: #ff7875; }
 
         /* ============================================================
-           移动端专属适配 (当屏幕宽度小于 768px 时生效)
+           移动端专属适配
            ============================================================ */
         @media (max-width: 768px) {
-            /* 顶部操作栏重构：铺满屏幕宽度，按钮均分，更易点按 */
-            #top-controls {
-                top: auto;
-                bottom: 20px;
+            #top-controls { top: auto; bottom: 20px; left: 10px; right: 10px; justify-content: space-between; }
+            .ctrl-btn { flex: 1; padding: 12px 0; font-size: 15px; display: flex; justify-content: center; align-items: center; }
+            
+            /* 移动端侧边栏占据全屏高度更舒适 */
+            #sidebar {
+                top: 10px;
                 left: 10px;
-                right: 10px;
-                justify-content: space-between;
+                bottom: 80px;
+                width: calc(100vw - 50px);
+                max-width: 340px;
             }
-            .ctrl-btn {
-                flex: 1;
-                padding: 12px 0;
-                font-size: 15px;
-                text-align: center;
-                display: flex;
-                justify-content: center;
-                align-items: center;
+            #sidebar.collapsed {
+                transform: translateX(-110vw);
             }
-            /* 返回首页按钮稍作缩小，贴合边缘 */
+            #sidebar-toggle {
+                right: -18px;
+                width: 36px;
+                height: 36px;
+            }
+
+            /* 移动端把返回首页挪到右上角，避开底部按钮 */
             #back-home {
-                top: 15px;
-                left: 15px;
-                padding: 6px 12px;
-                font-size: 12px;
+                bottom: auto;
+                top: 20px;
+                left: auto;
+                right: 20px;
             }
-            /* 弹窗自适应宽度 */
-            .ol-popup {
-                min-width: 200px;
-                max-width: 85vw; /* 最宽不超过屏幕宽度的 85% */
-                max-height: 50vh; /* 限制高度，防止弹窗占满整个手机屏幕 */
-            }
-            .popup-content-wrapper {
-                max-height: 35vh; /* 内部滚动区域更小 */
-            }
-            /* 测量提示框加大点击范围，方便手指点击 */
-            .measure-tooltip {
-                font-size: 13px;
-                padding: 6px 10px;
-            }
-            .measure-delete-btn {
-                width: 20px;
-                height: 20px;
-                font-size: 14px;
-            }
-            /* 进度条与状态提示稍微上移，避开底部的按钮 */
-            #progress-bar {
-                bottom: 80px; 
-            }
-            #status {
-                bottom: 120px;
-            }
+
+            .ol-popup { min-width: 200px; max-width: 85vw; max-height: 50vh; }
+            .popup-content-wrapper { max-height: 35vh; }
+            .measure-tooltip { font-size: 13px; padding: 6px 10px; }
+            .measure-delete-btn { width: 20px; height: 20px; font-size: 14px; }
+            #progress-bar { bottom: 80px; }
+            #status { bottom: 120px; }
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
+
+    <!-- ================= 搜索侧边栏 ================= -->
+    <div id="sidebar">
+        <button id="sidebar-toggle" title="折叠/展开">◀</button>
+        <div class="search-box">
+            <input type="text" id="search-input" placeholder="搜索地名或城址...">
+        </div>
+        <div class="search-results" id="search-results">
+            <div class="no-result">输入关键字开始搜索</div>
+        </div>
+    </div>
     
-    <!-- 进度条与状态提示 -->
+    <!-- 进度条与状态 -->
     <div id="progress-bar"><div id="progress-fill">0%</div></div>
     <div id="status">准备加载数据...</div>
     
-    <!-- 顶部控制栏 -->
+    <!-- 右上角控制栏 -->
     <div id="top-controls">
         <button class="ctrl-btn" id="measure-line-btn">📏 测距</button>
         <button class="ctrl-btn" id="measure-area-btn">⬛ 测面积</button>
@@ -368,9 +338,13 @@
 
     <script>
         // ============================================================
-        // 1. 配置与坐标转换
+        // 1. 全局配置
         // ============================================================
         const KML_FILE = '城址.kmz';
+        
+        // 这里填入了你提供的高德 Key
+        const AMAP_KEY = 'b9989c3b248bd63e3358e0d92dc122f7'; 
+
         ol.proj.useGeographic();
 
         const a = 6378245.0;
@@ -444,21 +418,36 @@
             })
         });
 
+        // 用于显示高德搜索结果的红点图层
+        const searchMarkerSource = new ol.source.Vector();
+        const searchMarkerLayer = new ol.layer.Vector({
+            source: searchMarkerSource,
+            style: new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 8,
+                    fill: new ol.style.Fill({ color: '#e74c3c' }),
+                    stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
+                })
+            }),
+            zIndex: 200
+        });
+        map.addLayer(searchMarkerLayer);
+
         const statusDiv = document.getElementById('status');
         const progressBar = document.getElementById('progress-bar');
         const progressFill = document.getElementById('progress-fill');
 
         // ============================================================
-        // 3. 业务矢量图层
+        // 3. 业务矢量图层 & 数据索引
         // ============================================================
         const vectorLayer = new ol.layer.Vector({
             source: new ol.source.Vector()
         });
         map.addLayer(vectorLayer);
 
-        // ============================================================
-        // 4. 解析与加载数据
-        // ============================================================
+        // 本地要素搜索索引库
+        let featureSearchIndex = []; 
+
         function parseKMLAndAddFeatures(kmlContent) {
             const format = new ol.format.KML({ extractStyles: true });
             const features = format.readFeatures(kmlContent, {
@@ -476,6 +465,18 @@
                 if (geom) {
                     geom.setCoordinates(convertCoordsRecursive(geom.getCoordinates()));
                 }
+                
+                // 构建搜索索引
+                const name = feature.get('name') || feature.get('Name') || '未命名';
+                const desc = feature.get('description') || feature.get('Description') || '';
+                const searchText = (name + ' ' + desc).toLowerCase();
+                
+                featureSearchIndex.push({
+                    feature: feature,
+                    name: name,
+                    desc: desc,
+                    searchText: searchText
+                });
             });
 
             const totalCount = features.length;
@@ -556,6 +557,153 @@
         }
 
         // ============================================================
+        // 4. 侧边栏与搜索功能
+        // ============================================================
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const searchInput = document.getElementById('search-input');
+        const searchResultsDiv = document.getElementById('search-results');
+
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            if (sidebar.classList.contains('collapsed')) {
+                sidebarToggle.innerHTML = '▶';
+            } else {
+                sidebarToggle.innerHTML = '◀';
+            }
+        });
+
+        let searchTimer;
+        searchInput.addEventListener('input', function(e) {
+            const keyword = this.value.trim();
+            
+            clearTimeout(searchTimer);
+            if (!keyword) {
+                searchResultsDiv.innerHTML = '<div class="no-result">输入关键字开始搜索</div>';
+                searchMarkerSource.clear();
+                return;
+            }
+
+            searchResultsDiv.innerHTML = '<div class="no-result">搜索中...</div>';
+            
+            searchTimer = setTimeout(() => {
+                performSearch(keyword);
+            }, 300);
+        });
+
+        function performSearch(keyword) {
+            searchMarkerSource.clear();
+            let html = '';
+
+            // --- 1. 搜索本地城址数据 ---
+            const localMatches = featureSearchIndex.filter(item => item.searchText.includes(keyword.toLowerCase()));
+            const displayLocal = localMatches.slice(0, 30); 
+
+            html += `<div class="result-section-title">城址要素 (${localMatches.length})</div>`;
+            if (displayLocal.length > 0) {
+                displayLocal.forEach((item, index) => {
+                    let snippet = item.desc.replace(/[\n\r]/g, ' ').substring(0, 40) + '...';
+                    html += `
+                        <div class="result-item local-result" data-index="${featureSearchIndex.indexOf(item)}">
+                            <div class="title">${item.name}</div>
+                            <div class="desc">${snippet}</div>
+                        </div>
+                    `;
+                });
+            } else {
+                html += '<div class="no-result" style="padding: 10px;">未找到相关城址</div>';
+            }
+
+            // --- 2. 搜索高德地名数据 ---
+            html += `<div class="result-section-title">高德地名</div>`;
+            html += `<div id="amap-results-container"><div class="no-result" style="padding: 10px;">正在请求...</div></div>`;
+
+            searchResultsDiv.innerHTML = html;
+
+            // 绑定本地结果的点击事件
+            document.querySelectorAll('.local-result').forEach(el => {
+                el.addEventListener('click', function() {
+                    const idx = parseInt(this.getAttribute('data-index'));
+                    const item = featureSearchIndex[idx];
+                    
+                    const geom = item.feature.getGeometry();
+                    let coord;
+                    if (geom instanceof ol.geom.Polygon) {
+                        coord = geom.getInteriorPoint().getCoordinates();
+                    } else if (geom instanceof ol.geom.LineString) {
+                        coord = geom.getCoordinateAt(0.5);
+                    } else {
+                        coord = geom.getCoordinates();
+                    }
+
+                    map.getView().animate({
+                        center: coord,
+                        zoom: 16,
+                        duration: 500
+                    });
+
+                    showPopup(item.name, item.desc, coord);
+                });
+            });
+
+            // --- 3. 发起高德 API 请求 ---
+            if (AMAP_KEY && AMAP_KEY !== '你的高德Web服务Key') {
+                fetch(`https://restapi.amap.com/v3/place/text?keywords=${encodeURIComponent(keyword)}&key=${AMAP_KEY}&offset=10&page=1`)
+                    .then(res => res.json())
+                    .then(data => {
+                        const container = document.getElementById('amap-results-container');
+                        if (data.status === '1' && data.pois && data.pois.length > 0) {
+                            let amapHtml = '';
+                            data.pois.forEach(poi => {
+                                const lngLat = poi.location.split(',');
+                                amapHtml += `
+                                    <div class="result-item amap-result" data-lng="${lngLat[0]}" data-lat="${lngLat[1]}" data-name="${poi.name}" data-address="${poi.pname}${poi.cityname}${poi.adname}${poi.address}">
+                                        <div class="title">${poi.name}</div>
+                                        <div class="desc">${poi.pname}${poi.cityname}${poi.adname}${poi.address}</div>
+                                    </div>
+                                `;
+                            });
+                            container.innerHTML = amapHtml;
+
+                            container.querySelectorAll('.amap-result').forEach(el => {
+                                el.addEventListener('click', function() {
+                                    const lng = parseFloat(this.getAttribute('data-lng'));
+                                    const lat = parseFloat(this.getAttribute('data-lat'));
+                                    const name = this.getAttribute('data-name');
+                                    const address = this.getAttribute('data-address');
+
+                                    // 高德 API 返回的是 GCJ02，底图也是 GCJ02 切片，直接定位
+                                    const coord = [lng, lat]; 
+
+                                    const markerFeature = new ol.Feature({
+                                        geometry: new ol.geom.Point(coord)
+                                    });
+                                    searchMarkerSource.addFeature(markerFeature);
+
+                                    map.getView().animate({
+                                        center: coord,
+                                        zoom: 14,
+                                        duration: 500
+                                    });
+
+                                    showPopup(name, '高德地址：' + address, coord);
+                                });
+                            });
+
+                        } else {
+                            container.innerHTML = '<div class="no-result" style="padding: 10px;">未找到高德地名</div>';
+                        }
+                    })
+                    .catch(err => {
+                        console.error("高德API请求失败", err);
+                        document.getElementById('amap-results-container').innerHTML = '<div class="no-result" style="padding: 10px; color: red;">请求失败，请检查 Key 或网络</div>';
+                    });
+            } else {
+                document.getElementById('amap-results-container').innerHTML = '<div class="no-result" style="padding: 10px; color: red;">未配置高德API Key</div>';
+            }
+        }
+
+        // ============================================================
         // 5. 弹窗功能
         // ============================================================
         const popupElement = document.createElement('div');
@@ -582,6 +730,12 @@
             popup.setPosition(undefined);
         });
 
+        function showPopup(title, content, coord) {
+            popupElement.querySelector('.popup-title').textContent = title;
+            popupElement.querySelector('.popup-content').innerHTML = content.replace(/\n/g, '<br>') || '（无描述信息）';
+            popup.setPosition(coord);
+        }
+
         map.on('click', function(event) {
             if (isMeasuring) return;
 
@@ -590,11 +744,7 @@
                 if (layer === vectorLayer) {
                     let name = feature.get('name') || feature.get('Name') || '（无标题）';
                     let description = feature.get('description') || feature.get('Description') || '';
-
-                    let html = description.replace(/\n/g, '<br>');
-                    popupElement.querySelector('.popup-title').textContent = name;
-                    popupElement.querySelector('.popup-content').innerHTML = html || '（无描述信息）';
-                    popup.setPosition(event.coordinate);
+                    showPopup(name, description, event.coordinate);
                     featureFound = true;
                     return true;
                 }
@@ -652,7 +802,7 @@
         });
 
         // ============================================================
-        // 7. 测距与测面积功能 (完美修复版)
+        // 7. 测距与测面积
         // ============================================================
         let isMeasuring = false;
         let currentMeasureType = null;
@@ -664,10 +814,7 @@
             style: new ol.style.Style({
                 fill: new ol.style.Fill({ color: 'rgba(255, 204, 51, 0.3)' }),
                 stroke: new ol.style.Stroke({ color: 'rgba(255, 204, 51, 1)', width: 2 }),
-                image: new ol.style.Circle({
-                    radius: 7,
-                    fill: new ol.style.Fill({ color: 'rgba(255, 204, 51, 1)' })
-                })
+                image: new ol.style.Circle({ radius: 7, fill: new ol.style.Fill({ color: 'rgba(255, 204, 51, 1)' }) })
             }),
             zIndex: 100 
         });
@@ -698,9 +845,7 @@
         function clearAllMeasures() {
             measureSource.getFeatures().forEach(function(feature) {
                 const tooltip = feature.get('tooltip');
-                if (tooltip) {
-                    map.removeOverlay(tooltip);
-                }
+                if (tooltip) map.removeOverlay(tooltip);
             });
             measureSource.clear();
             activeTooltip.setPosition(undefined);
@@ -724,7 +869,6 @@
 
         function addMeasureInteraction(type) {
             if (drawInteraction) map.removeInteraction(drawInteraction);
-            
             clearAllMeasures();
 
             currentMeasureType = type;
