@@ -2,6 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <!-- 新增：适配移动端视口，禁止用户双击缩放页面（保留双指捏合缩放地图） -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>城墙城址数据集</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css" />
     <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
@@ -14,6 +16,10 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
+            /* 防止手机端长按选中文字或弹出菜单 */
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
         }
         #map {
             width: 100%;
@@ -184,6 +190,9 @@
             max-height: 300px;
             overflow-y: auto;
             background: white;
+            /* 允许用户复制弹窗里的文字 */
+            -webkit-user-select: text;
+            user-select: text;
         }
         .popup-content {
             font-size: 13px;
@@ -281,6 +290,62 @@
         }
         .measure-delete-btn:hover {
             background: #ff7875;
+        }
+
+        /* ============================================================
+           移动端专属适配 (当屏幕宽度小于 768px 时生效)
+           ============================================================ */
+        @media (max-width: 768px) {
+            /* 顶部操作栏重构：铺满屏幕宽度，按钮均分，更易点按 */
+            #top-controls {
+                top: auto;
+                bottom: 20px;
+                left: 10px;
+                right: 10px;
+                justify-content: space-between;
+            }
+            .ctrl-btn {
+                flex: 1;
+                padding: 12px 0;
+                font-size: 15px;
+                text-align: center;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+            /* 返回首页按钮稍作缩小，贴合边缘 */
+            #back-home {
+                top: 15px;
+                left: 15px;
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            /* 弹窗自适应宽度 */
+            .ol-popup {
+                min-width: 200px;
+                max-width: 85vw; /* 最宽不超过屏幕宽度的 85% */
+                max-height: 50vh; /* 限制高度，防止弹窗占满整个手机屏幕 */
+            }
+            .popup-content-wrapper {
+                max-height: 35vh; /* 内部滚动区域更小 */
+            }
+            /* 测量提示框加大点击范围，方便手指点击 */
+            .measure-tooltip {
+                font-size: 13px;
+                padding: 6px 10px;
+            }
+            .measure-delete-btn {
+                width: 20px;
+                height: 20px;
+                font-size: 14px;
+            }
+            /* 进度条与状态提示稍微上移，避开底部的按钮 */
+            #progress-bar {
+                bottom: 80px; 
+            }
+            #status {
+                bottom: 120px;
+            }
         }
     </style>
 </head>
@@ -608,7 +673,6 @@
         });
         map.addLayer(measureVector);
 
-        // 活动中的动态提示框（解决第一次不显示的问题）
         let activeTooltipElement = document.createElement('div');
         activeTooltipElement.className = 'measure-tooltip';
         let activeTooltip = new ol.Overlay({
@@ -631,12 +695,21 @@
             return (Math.round(area * 100) / 100) + ' 平方米';
         }
 
-        // 点击单条轨迹的删除按钮
+        function clearAllMeasures() {
+            measureSource.getFeatures().forEach(function(feature) {
+                const tooltip = feature.get('tooltip');
+                if (tooltip) {
+                    map.removeOverlay(tooltip);
+                }
+            });
+            measureSource.clear();
+            activeTooltip.setPosition(undefined);
+        }
+
         let deleteTimeout;
         document.body.addEventListener('click', function(e) {
             if (e.target && e.target.classList.contains('measure-delete-btn')) {
                 clearTimeout(deleteTimeout);
-                // 使用短延迟，防止用户拖拽地图时误触
                 deleteTimeout = setTimeout(() => {
                     const featureId = e.target.getAttribute('data-id');
                     const feature = measureSource.getFeatureById(featureId);
@@ -651,8 +724,8 @@
 
         function addMeasureInteraction(type) {
             if (drawInteraction) map.removeInteraction(drawInteraction);
-            measureSource.clear();
-            activeTooltip.setPosition(undefined);
+            
+            clearAllMeasures();
 
             currentMeasureType = type;
             isMeasuring = true;
@@ -697,7 +770,6 @@
                 const featureId = 'measure_' + Date.now();
                 feature.setId(featureId);
 
-                // 创建静态提示框并带删除按钮
                 let tooltipEl = document.createElement('div');
                 tooltipEl.className = 'measure-tooltip';
                 const currentText = activeTooltipElement.innerHTML;
@@ -707,11 +779,10 @@
                     element: tooltipEl,
                     offset: [0, -15],
                     positioning: 'bottom-center',
-                    stopEvent: true // 允许点击按钮
+                    stopEvent: true
                 });
                 map.addOverlay(staticTooltip);
                 
-                // 锁定提示框位置
                 const geom = feature.getGeometry();
                 let coord = geom instanceof ol.geom.Polygon ? geom.getInteriorPoint().getCoordinates() : geom.getLastCoordinate();
                 staticTooltip.setPosition(coord);
@@ -735,7 +806,7 @@
             currentMeasureType = null;
             resetButtons();
             map.getTargetElement().style.cursor = '';
-            activeTooltip.setPosition(undefined);
+            clearAllMeasures();
         }
 
         btnLine.addEventListener('click', function() {
