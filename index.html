@@ -12,7 +12,8 @@
         }
         body {
             background: #f2efe8;
-            font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Times New Roman', serif;
+            /* 修改：全局字体改为微软雅黑 */
+            font-family: "Microsoft YaHei", "微软雅黑", "PingFang SC", sans-serif;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -165,7 +166,7 @@
             border-radius: 30px;
         }
 
-        /* 更新日志 — 双栏滚动 */
+        /* 更新日志 */
         .update-box {
             background: #f2ece1;
             padding: 18px 24px 12px 24px;
@@ -188,6 +189,18 @@
             color: #9b8b78;
             font-weight: 400;
         }
+        
+        /* 新增：系统更新与内容更新的子标题 */
+        .update-subtitle {
+            font-size: 14.5px;
+            font-weight: 600;
+            color: #5f5240;
+            margin: 12px 0 6px 0;
+            padding-left: 4px;
+            border-left: 3px solid #bbaa92;
+            padding-left: 8px;
+        }
+
         .update-scroll {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -243,6 +256,58 @@
             display: inline-block;
         }
 
+        /* 新增：参考资料下载 */
+        .download-box {
+            background: #f8f4eb;
+            padding: 18px 24px;
+            border-radius: 18px;
+            margin: 18px 0 22px 0;
+            border: 1px solid #e2d9cb;
+        }
+        .download-box h3 {
+            font-size: 16px;
+            letter-spacing: 2px;
+            font-weight: 600;
+            color: #3e3529;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .download-box h3::before {
+            content: "📥";
+            font-size: 18px;
+        }
+        .download-list {
+            list-style: none;
+            padding-left: 4px;
+        }
+        .download-list li {
+            font-size: 14px;
+            line-height: 1.8;
+            color: #3d352a;
+            padding: 6px 0;
+            border-bottom: 1px dashed #e3dbcd;
+        }
+        .download-list li:last-child {
+            border-bottom: none;
+        }
+        .download-list a {
+            color: #0056b3;
+            text-decoration: none;
+        }
+        .download-list a:hover {
+            text-decoration: underline;
+        }
+        .download-list .code {
+            background: #ede7db;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+            color: #d9534f;
+        }
+
         /* 进入按钮 */
         .enter-btn {
             display: block;
@@ -258,7 +323,7 @@
             cursor: pointer;
             transition: all 0.2s ease;
             box-shadow: 0 6px 0 #201c16, 0 8px 20px rgba(0,0,0,0.2);
-            font-family: 'Noto Serif SC', serif;
+            font-family: "Microsoft YaHei", "微软雅黑", sans-serif; /* 按钮字体也同步修改 */
             margin-top: 12px;
         }
         .enter-btn:hover {
@@ -298,19 +363,20 @@
             .legend-item { font-size: 12.5px; }
             .update-scroll li { font-size: 12.5px; }
         }
-/* 更新文本 - 保留原始格式 */
-.update-text {
-    font-family: 'Noto Serif SC', 'Source Han Serif SC', serif;
-    font-size: 14px;
-    line-height: 1.8;
-    color: #3d352a;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    padding: 4px 0 4px 4px;
-    margin: 0;
-    background: transparent;
-    border: none;
-}
+        
+        /* 更新文本 - 保留原始格式 */
+        .update-text {
+            font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+            font-size: 14px;
+            line-height: 1.8;
+            color: #3d352a;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            padding: 4px 0 4px 4px;
+            margin: 0;
+            background: transparent;
+            border: none;
+        }
     </style>
 </head>
 <body>
@@ -357,15 +423,29 @@
             <div class="legend-item"><span class="color-swatch" style="background:#e07b3a;"></span> 橙色线（线型：Oo）：不依附城墙，单独存在的断崖、山险</div>
             <div class="legend-item"><span class="color-swatch" style="background:#4080c0;"></span> 蓝色线（线型：Bo）：不依附城墙，单独存在的环壕、围沟、水险（推测区段以40%不透明度线标示，线型：Bt）</div>
             <div class="legend-item"><span class="color-swatch" style="background:#e07b9a;"></span> 粉色线（线型：Po）：低等级地上环围工事，包括竹篱、木栅、非城墙形态的寺庙/宫苑/陵寝围墙等（推测区段以40%不透明度线标示，线型：Pt）</div>
-            <div class="legend-item"><span class="color-swatch" style="background:#f5c542;opacity:0.8;"></span> 黄色线（线型：Yx，80%不透明度）：无连续防御工事的建成区或遗址范围（仅限未建城郭的清府县及历代都城）</div>
+            <div class="legend-item"><span class="color-swatch" style="background:#f5c542;opacity:0.8;"></span> 黄色线（线型：Yx，80%不透明度）：无连续防御工事的建成区或遗址范围（仅限未建城郭的清府县及历代都城、重要城市遗址）</div>
         </div>
     </div>
 
     <!-- ===== 更新日志 ===== -->
     <div class="update-box">
-    <h3>本期更新 · 2026.10.28</h3>
-    <div class="update-content">
-        <pre class="update-text">
+        <h3>本期更新 · 2026.10.28</h3>
+        
+        <!-- 新增：系统更新 -->
+        <div class="update-subtitle">系统更新</div>
+        <div class="update-content">
+            <pre class="update-text">
+1. 增加搜索栏，可搜索地名和要素名。
+2. 增加测距、测面积功能。
+3. 更改“关灯”模式透明度。
+4. 鼠标移至要素时高亮显示。
+            </pre>
+        </div>
+
+        <!-- 新增：内容更新 -->
+        <div class="update-subtitle" style="margin-top: 16px;">内容更新</div>
+        <div class="update-content">
+            <pre class="update-text">
 1.补充漠北历代城址、蒙古中部地区壕墙（采用B站67501015整理提供的数据）。
 2.补充粤、豫、鄂部分地区市镇、圩墙、村堡、山寨等（采用_Aleksibob整理提供的数据）。
 3.新增当雄县境内一些未知的疑似古城，以及部分西藏其它地区的古城古堡。
@@ -379,15 +459,27 @@
 
 重大误差修正：
 峡江县（清治所），（沙虎）（渤海-明），万载县（清治所），瑞昌县（清治所），御谋城（背城）（宋），广州满城（清），日照县（清治所），兴国州（清治所），南安府 大庾县（清治所）
-        </pre>
-        <div class="correction-box">
-            <span class="tag">说明</span>
-            <strong>起始年代</strong>：一般按该城址轮廓形状形成的时间计。（除清府县外，一级分类按照起始年代分类）。<br>
-            <strong>废止年代</strong>：城墙拆除（以破坏其整体性为“拆除”，局部如瓮城、羊马城、城门之拆改不计）或城址废弃，二有一则视为废止。<br>
-            <strong>城址名</strong>：不加括号者为该城址建成时的名称，加括号者为该城址的现代名称，例如：“燕中都”“（窦店）”。
+            </pre>
+            <div class="correction-box">
+                <span class="tag">说明</span>
+                <strong>起始年代</strong>：一般按该城址轮廓形状形成的时间计。（除清府县外，一级分类按照起始年代分类）。<br>
+                <strong>废止年代</strong>：城墙拆除（以破坏其整体性为“拆除”，局部如瓮城、羊马城、城门之拆改不计）或城址废弃，二有一则视为废止。<br>
+                <strong>城址名</strong>：不加括号者为该城址建成时的名称，加括号者为该城址的现代名称，例如：“燕中都”“（窦店）”。
+            </div>
         </div>
     </div>
-</div>
+
+    <!-- ===== 新增：参考资料下载 ===== -->
+    <div class="download-box">
+        <h3>参考资料下载</h3>
+        <ul class="download-list">
+            <li>1. 城址参考旧地图、旧卫星图、复原平面图等。链接：<a href="xxx" target="_blank">xxx</a>，提取码：<span class="code">xxx</span></li>
+            <li>2. 部分参考书籍、论文。链接：<a href="xxx" target="_blank">xxx</a>，提取码：<span class="code">xxx</span></li>
+            <li>3. 民国军用地图。链接：<a href="xxx" target="_blank">xxx</a>，提取码：<span class="code">xxx</span></li>
+            <li>4. 地方志资料。链接：<a href="xxx" target="_blank">xxx</a>，提取码：<span class="code">xxx</span></li>
+            <li>5. 日勘军图（满洲、朝鲜、华北等地，Stanford Digital Repository收集）。链接：<a href="xxx" target="_blank">xxx</a></li>
+        </ul>
+    </div>
 
     <!-- ===== 进入按钮 ===== -->
     <button class="enter-btn" id="enterBtn">进入地图</button>
