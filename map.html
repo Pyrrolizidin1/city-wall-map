@@ -126,8 +126,17 @@
         .measure-delete-btn:hover { background: #ff7875; }
 
         /* ============================================================
-           移动端专属适配 (完美版)
+           新增：底图视觉增强滤镜
            ============================================================ */
+        /* 默认状态：复古泛黄纸质感（降低一点亮度，增加复古色调） */
+        .ol-layer canvas {
+            filter: sepia(0.3) contrast(1.1) brightness(0.95) !important;
+        }
+        /* 关灯状态：暗夜模式（极暗） */
+        #map.dark-mode .ol-layer canvas {
+            filter: invert(1) hue-rotate(180deg) brightness(0.7) contrast(0.9) !important;
+        }
+
         @media (max-width: 768px) {
             #top-controls {
                 top: auto; bottom: 20px; left: 10px; right: 10px; justify-content: space-between; gap: 5px;
@@ -138,18 +147,10 @@
             #sidebar {
                 top: 10px; left: 10px; bottom: 75px; width: calc(100vw - 20px); max-width: none;
             }
-            #sidebar.collapsed {
-                transform: translateX(-100%); 
-            }
-            #sidebar-toggle {
-                width: 32px; height: 54px; right: -24px; font-size: 16px; border-radius: 0 8px 8px 0;
-            }
-            #sidebar.collapsed #sidebar-toggle {
-                right: -44px; border-radius: 8px; box-shadow: 2px 0 12px rgba(0,0,0,0.2);
-            }
-            #back-home {
-                bottom: auto; top: 20px; right: 20px; left: auto;
-            }
+            #sidebar.collapsed { transform: translateX(-100%); }
+            #sidebar-toggle { width: 32px; height: 54px; right: -24px; font-size: 16px; border-radius: 0 8px 8px 0; }
+            #sidebar.collapsed #sidebar-toggle { right: -44px; border-radius: 8px; box-shadow: 2px 0 12px rgba(0,0,0,0.2); }
+            #back-home { bottom: auto; top: 20px; right: 20px; left: auto; }
             .ol-popup { min-width: 200px; max-width: 85vw; max-height: 50vh; }
             .popup-content-wrapper { max-height: 35vh; }
             .measure-tooltip { font-size: 13px; padding: 6px 10px; }
@@ -278,59 +279,7 @@
         const progressFill = document.getElementById('progress-fill');
 
         // ============================================================
-        // 3. 底板与夜视模式 (新增 20% 默认遮罩)
-        // ============================================================
-        // 动态生成黑色瓦片
-        function createBlackTile(opacity) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 256; canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
-            ctx.fillRect(0, 0, 256, 256);
-            return canvas.toDataURL('image/png');
-        }
-
-        let currentBlackTileDataUrl = createBlackTile(0.2); // 默认 20% 透明度
-
-        const shadowLayer = new ol.layer.Tile({
-            source: new ol.source.TileImage({
-                tileUrlFunction: function() { return currentBlackTileDataUrl; },
-                projection: 'EPSG:3857',
-                tileGrid: new ol.tilegrid.TileGrid({
-                    extent: [-20037508.34, -20037508.34, 20037508.34, 20037508.34],
-                    origin: [-20037508.34, 20037508.34],
-                    resolutions: [156543.03392804097, 78271.51696402048, 39135.75848201024, 19567.87924100512, 9783.93962050256, 4891.96981025128, 2445.98490512564, 1222.99245256282, 611.49622628141, 305.748113140705, 152.8740565703525, 76.43702828517625, 38.21851414258813, 19.109257071294063, 9.554628535647032, 4.777314267823516, 2.388657133911758, 1.194328566955879, 0.5971642834779395, 0.29858214173896974]
-                })
-            }),
-            opacity: 1.0, 
-            visible: true, // 默认显示！
-            zIndex: 1
-        });
-        map.addLayer(shadowLayer);
-
-        const toggleBtn = document.getElementById('light-toggle');
-        let darkMode = false;
-
-        toggleBtn.addEventListener('click', function() {
-            darkMode = !darkMode;
-            
-            if (darkMode) {
-                // 变成深色模式 (70% 黑)
-                currentBlackTileDataUrl = createBlackTile(0.7);
-                shadowLayer.getSource().refresh(); // 强制刷新瓦片
-                toggleBtn.innerHTML = '☀️ 开灯';
-                toggleBtn.classList.add('active');
-            } else {
-                // 恢复默认 20% 模式
-                currentBlackTileDataUrl = createBlackTile(0.2);
-                shadowLayer.getSource().refresh();
-                toggleBtn.innerHTML = '🌙 关灯';
-                toggleBtn.classList.remove('active');
-            }
-        });
-
-        // ============================================================
-        // 4. 业务矢量图层 & 数据索引
+        // 3. 业务矢量图层 & 数据索引
         // ============================================================
         const vectorLayer = new ol.layer.Vector({ source: new ol.source.Vector() });
         map.addLayer(vectorLayer);
@@ -442,7 +391,7 @@
         }
 
         // ============================================================
-        // 5. 侧边栏与搜索功能
+        // 4. 侧边栏与搜索功能
         // ============================================================
         const sidebar = document.getElementById('sidebar');
         const sidebarToggle = document.getElementById('sidebar-toggle');
@@ -558,7 +507,7 @@
         }
 
         // ============================================================
-        // 6. 弹窗功能
+        // 5. 弹窗功能
         // ============================================================
         const popupElement = document.createElement('div');
         popupElement.className = 'ol-popup';
@@ -603,7 +552,7 @@
         });
 
         // ============================================================
-        // 7. 鼠标悬停高亮逻辑
+        // 6. 鼠标悬停高亮逻辑
         // ============================================================
         let lastHighlightedFeature = null;
         let highlightOverlay = new ol.layer.Vector({
@@ -637,6 +586,26 @@
                 } else {
                     map.getTargetElement().style.cursor = '';
                 }
+            }
+        });
+
+        // ============================================================
+        // 7. 关灯模式 (利用 CSS Filter 实现)
+        // ============================================================
+        const toggleBtn = document.getElementById('light-toggle');
+        let darkMode = false;
+
+        toggleBtn.addEventListener('click', function() {
+            darkMode = !darkMode;
+            if (darkMode) {
+                // 在 map 容器上加上 dark-mode 类名，触发 CSS 滤镜
+                document.getElementById('map').classList.add('dark-mode');
+                toggleBtn.innerHTML = '☀️ 开灯';
+                toggleBtn.classList.add('active');
+            } else {
+                document.getElementById('map').classList.remove('dark-mode');
+                toggleBtn.innerHTML = '🌙 关灯';
+                toggleBtn.classList.remove('active');
             }
         });
 
