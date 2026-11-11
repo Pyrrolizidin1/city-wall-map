@@ -12,7 +12,6 @@
         }
         body {
             background: #f2efe8;
-            /* 修改：全局字体改为微软雅黑 */
             font-family: "Microsoft YaHei", "微软雅黑", "PingFang SC", sans-serif;
             min-height: 100vh;
             display: flex;
@@ -41,7 +40,6 @@
             100% { opacity: 1; transform: translateY(0); }
         }
 
-        /* 标题区 */
         .title-block {
             text-align: center;
             border-bottom: 2px solid #d3c9b8;
@@ -75,7 +73,6 @@
             font-weight: 400;
         }
 
-        /* 作者 + 协助网格 */
         .meta-grid {
             display: grid;
             grid-template-columns: 1fr 2.2fr;
@@ -116,7 +113,6 @@
             color: #2f281e;
         }
 
-        /* 图例 —— 两列 + 不透明度小注 */
         .legend-wrap {
             background: #f8f4eb;
             padding: 18px 22px 12px 22px;
@@ -166,7 +162,6 @@
             border-radius: 30px;
         }
 
-        /* 更新日志 */
         .update-box {
             background: #f2ece1;
             padding: 18px 24px 12px 24px;
@@ -190,15 +185,13 @@
             font-weight: 400;
         }
         
-        /* 新增：系统更新与内容更新的子标题 */
         .update-subtitle {
             font-size: 14.5px;
             font-weight: 600;
             color: #5f5240;
             margin: 12px 0 6px 0;
-            padding-left: 4px;
-            border-left: 3px solid #bbaa92;
             padding-left: 8px;
+            border-left: 3px solid #bbaa92;
         }
 
         .update-scroll {
@@ -256,7 +249,6 @@
             display: inline-block;
         }
 
-        /* 新增：参考资料下载 */
         .download-box {
             background: #f8f4eb;
             padding: 18px 24px;
@@ -308,7 +300,6 @@
             color: #d9534f;
         }
 
-        /* 进入按钮 */
         .enter-btn {
             display: block;
             width: 100%;
@@ -323,7 +314,7 @@
             cursor: pointer;
             transition: all 0.2s ease;
             box-shadow: 0 6px 0 #201c16, 0 8px 20px rgba(0,0,0,0.2);
-            font-family: "Microsoft YaHei", "微软雅黑", sans-serif; /* 按钮字体也同步修改 */
+            font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
             margin-top: 12px;
         }
         .enter-btn:hover {
@@ -345,7 +336,6 @@
             user-select: none;
         }
 
-        /* 响应式 */
         @media (max-width: 780px) {
             .scroll-card { padding: 28px 18px 30px 18px; }
             h1 { font-size: 26px; letter-spacing: 2px; }
@@ -364,7 +354,6 @@
             .update-scroll li { font-size: 12.5px; }
         }
         
-        /* 更新文本 - 保留原始格式 */
         .update-text {
             font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
             font-size: 14px;
@@ -381,19 +370,16 @@
 </head>
 <body>
 <div class="scroll-card" id="startCard">
-    <!-- ===== 标题 ===== -->
     <div class="title-block">
         <h1>城墙城址数据集（测试）</h1>
         <div class="subhead">v20261028</div>
     </div>
 
-    <!-- ===== 作者 & 协助 ===== -->
     <div class="meta-grid">
     <div class="author"><strong>作者</strong><br>曲振宇（知乎 <span style="background:#d9cebc;padding:0 8px;border-radius:20px;">@吡啶</span>）</div>
     <div>
         <div style="font-weight:500; margin-bottom:6px; letter-spacing:1px;">数据、资料的提供与协助：</div>
         <div class="helper-grid">
-            <!-- 左栏 -->
             <div class="helper-col">
                 <div class="helper-item"><span class="name">无影TEL</span><span class="desc">10-14世纪城址的寻找与资料分享</span></div>
                 <div class="helper-item"><span class="name">67501015（B站）</span><span class="desc">内、外蒙古城址寻找与资料分享</span></div>
@@ -403,7 +389,6 @@
                 <div class="helper-item"><span class="name">李慧</span><span class="desc">哈尔滨周边城址实地探查、资料分享</span></div>
                 <div class="helper-item"><span class="name">徐辉（古城数字博物馆）</span><span class="desc">数据应用、近代城市地图分享</span></div>
             </div>
-            <!-- 右栏 -->
             <div class="helper-col">
                 <div class="helper-item"><span class="name">胖昊（微信公众号、微博）</span><span class="desc">地方志资料提供、纠错</span></div>
                 <div class="helper-item"><span class="name">Kümül Öge</span><span class="desc">草原城址资料分享</span></div>
@@ -415,7 +400,6 @@
     </div>
 </div>
 
-    <!-- ===== 图例 ===== -->
     <div class="legend-wrap">
         <div class="legend-grid">
             <div class="legend-item"><span class="color-swatch" style="background:#00b0b0;"></span> 青色线（线型：Co）：防御墙，包括长城、城墙、圩子墙等（推测区段以40%不透明度线标示，线型：Ct）</div>
@@ -427,11 +411,9 @@
         </div>
     </div>
 
-    <!-- ===== 更新日志 ===== -->
     <div class="update-box">
         <h3>本期更新 · 2026.10.28</h3>
         
-        <!-- 新增：系统更新 -->
         <div class="update-subtitle">系统更新</div>
         <div class="update-content">
             <pre class="update-text">
@@ -439,10 +421,11 @@
 2. 增加测距、测面积功能。
 3. 更改“关灯”模式透明度。
 4. 鼠标移至要素时高亮显示。
+5. 增加轮廓未定点位选项。
+6. 增加Esri底图。
             </pre>
         </div>
 
-        <!-- 新增：内容更新 -->
         <div class="update-subtitle" style="margin-top: 16px;">内容更新</div>
         <div class="update-content">
             <pre class="update-text">
@@ -469,7 +452,6 @@
         </div>
     </div>
 
-    <!-- ===== 新增：参考资料下载 ===== -->
     <div class="download-box">
         <h3>参考资料下载</h3>
         <ul class="download-list">
@@ -481,22 +463,38 @@
         </ul>
     </div>
 
-    <!-- ===== 进入按钮 ===== -->
     <button class="enter-btn" id="enterBtn">进入地图</button>
+    <button class="enter-btn" id="enterBtnSat" style="background:#4a5a6a; font-size:18px; letter-spacing:4px; margin-top:8px;">
+        进入卫星图（Esri）
+    </button>
     <div class="ornament">— ◇ —</div>
 </div>
 
 <script>
-    document.getElementById('enterBtn').addEventListener('click', function() {
+    function goWithFade(target) {
         const card = document.getElementById('startCard');
         card.style.transition = 'opacity 0.5s ease, transform 0.5s cubic-bezier(0.5, 0, 0.5, 1)';
         card.style.opacity = '0';
         card.style.transform = 'translateY(-24px) scale(0.96)';
         setTimeout(() => {
-            window.location.href = 'map.html';
+            window.location.href = target;
         }, 550);
+    }
+
+    document.getElementById('enterBtn').addEventListener('click', function() {
+        goWithFade('map.html');
     });
     document.getElementById('enterBtn').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            this.click();
+        }
+    });
+
+    document.getElementById('enterBtnSat').addEventListener('click', function() {
+        goWithFade('map-satellite.html');
+    });
+    document.getElementById('enterBtnSat').addEventListener('keydown', function(e) {
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             this.click();
