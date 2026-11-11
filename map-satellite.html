@@ -8,114 +8,40 @@
     <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
-        body, html {
-            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
-            -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
-        }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
         #map { width: 100%; height: 100%; }
-
-        #progress-bar {
-            position: fixed; bottom: 20px; left: 20px; right: 20px; height: 30px;
-            background: rgba(0,0,0,0.7); border-radius: 15px; z-index: 1000; display: none;
-            overflow: hidden;
-        }
-        #progress-fill {
-            height: 100%; background: #4CAF50; border-radius: 15px; width: 0%;
-            transition: width 0.3s; line-height: 30px; color: white; text-align: center; font-size: 14px;
-            position: relative;
-        }
-        #progress-tip {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; align-items: center; justify-content: center;
-            color: #fff; font-size: 13px; font-weight: 500; pointer-events: none;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-            letter-spacing: 1px;
-        }
-        #status {
-            position: fixed; bottom: 60px; left: 20px; background: rgba(0,0,0,0.7); color: white;
-            padding: 8px 15px; border-radius: 20px; font-size: 12px; z-index: 1000; font-family: monospace;
-        }
-
-        #top-controls {
-            position: fixed; top: 20px; right: 20px; z-index: 1100; display: flex; gap: 10px;
-        }
-        .ctrl-btn {
-            padding: 10px 18px; background: rgba(30, 30, 30, 0.85); color: #f0f0f0;
-            border: 1px solid #555; border-radius: 30px; font-size: 14px; font-weight: 500;
-            cursor: pointer; box-shadow: 0 2px 12px rgba(0,0,0,0.4); backdrop-filter: blur(4px);
-            transition: all 0.2s ease; letter-spacing: 0.5px;
-        }
+        #progress-bar { position: fixed; bottom: 20px; left: 20px; right: 20px; height: 30px; background: rgba(0,0,0,0.7); border-radius: 15px; z-index: 1000; display: none; overflow: hidden; }
+        #progress-fill { height: 100%; background: #4CAF50; border-radius: 15px; width: 0%; transition: width 0.3s; line-height: 30px; color: white; text-align: center; font-size: 14px; position: relative; }
+        #progress-tip { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; font-weight: 500; pointer-events: none; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); letter-spacing: 1px; }
+        #status { position: fixed; bottom: 60px; left: 20px; background: rgba(0,0,0,0.7); color: white; padding: 8px 15px; border-radius: 20px; font-size: 12px; z-index: 1000; font-family: monospace; }
+        #top-controls { position: fixed; top: 20px; right: 20px; z-index: 1100; display: flex; gap: 10px; }
+        .ctrl-btn { padding: 10px 18px; background: rgba(30, 30, 30, 0.85); color: #f0f0f0; border: 1px solid #555; border-radius: 30px; font-size: 14px; font-weight: 500; cursor: pointer; box-shadow: 0 2px 12px rgba(0,0,0,0.4); backdrop-filter: blur(4px); transition: all 0.2s ease; letter-spacing: 0.5px; }
         .ctrl-btn:hover { background: rgba(60, 60, 60, 0.95); border-color: #aaa; transform: scale(1.02); }
         .ctrl-btn.active { background: rgba(200, 180, 100, 0.9); color: #1a1a1a; border-color: #cbb77a; }
-
-        #sidebar {
-            position: fixed; top: 20px; left: 20px; bottom: 80px; width: 320px;
-            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
-            border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 1100;
-            display: flex; flex-direction: column; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            transform: translateX(0);
-        }
+        #sidebar { position: fixed; top: 20px; left: 20px; bottom: 80px; width: 320px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 1100; display: flex; flex-direction: column; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); transform: translateX(0); }
         #sidebar.collapsed { transform: translateX(-360px); }
-
-        #sidebar-toggle {
-            position: absolute; top: 50%; right: -14px; transform: translateY(-50%);
-            width: 28px; height: 48px; background: #ffffff; color: #333;
-            border: 1px solid #ddd; border-radius: 0 8px 8px 0; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 2px 0 8px rgba(0,0,0,0.1); z-index: 10; font-weight: bold; font-size: 14px;
-            transition: background 0.2s, color 0.2s;
-        }
+        #sidebar-toggle { position: absolute; top: 50%; right: -14px; transform: translateY(-50%); width: 28px; height: 48px; background: #ffffff; color: #333; border: 1px solid #ddd; border-radius: 0 8px 8px 0; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 2px 0 8px rgba(0,0,0,0.1); z-index: 10; font-weight: bold; font-size: 14px; transition: background 0.2s, color 0.2s; }
         #sidebar-toggle:hover { background: #f0f0f0; color: #000; }
         #sidebar.collapsed #sidebar-toggle { right: -28px; border-radius: 8px; }
-
         .search-box { padding: 15px; border-bottom: 1px solid #eee; }
-        .search-box input {
-            width: 100%; padding: 10px 15px; border: 1px solid #ddd; border-radius: 20px;
-            font-size: 14px; outline: none; box-sizing: border-box; background: #f8f8f8; transition: border-color 0.2s;
-        }
+        .search-box input { width: 100%; padding: 10px 15px; border: 1px solid #ddd; border-radius: 20px; font-size: 14px; outline: none; box-sizing: border-box; background: #f8f8f8; transition: border-color 0.2s; }
         .search-box input:focus { border-color: #bbaa92; background: #fff; }
-
-        .layer-toggles {
-            padding: 12px 15px; background: #fafafa; border-bottom: 1px solid #eee;
-            display: flex; flex-direction: column; gap: 10px;
-        }
-        .layer-toggle-item {
-            display: flex; align-items: center; gap: 8px;
-            font-size: 13.5px; color: #333; cursor: pointer; font-weight: 500;
-        }
-        .layer-toggle-item input[type="checkbox"] {
-            accent-color: #3d352a; width: 16px; height: 16px; cursor: pointer;
-        }
-
+        .layer-toggles { padding: 12px 15px; background: #fafafa; border-bottom: 1px solid #eee; display: flex; flex-direction: column; gap: 10px; }
+        .layer-toggle-item { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: #333; cursor: pointer; font-weight: 500; }
+        .layer-toggle-item input[type="checkbox"] { accent-color: #3d352a; width: 16px; height: 16px; cursor: pointer; }
         .search-results { flex: 1; overflow-y: auto; padding: 10px 0; }
         .search-results::-webkit-scrollbar { width: 6px; }
         .search-results::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
-
-        .result-section-title {
-            padding: 8px 15px; font-size: 12px; color: #888; font-weight: bold; background: #f9f9f9; position: sticky; top: 0;
-        }
+        .result-section-title { padding: 8px 15px; font-size: 12px; color: #888; font-weight: bold; background: #f9f9f9; position: sticky; top: 0; }
         .result-item { padding: 12px 15px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s; }
         .result-item:hover { background: #f0f0f0; }
         .result-item .title { font-size: 14px; color: #333; font-weight: bold; margin-bottom: 4px; }
         .result-item .desc { font-size: 12px; color: #777; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .no-result { padding: 15px; font-size: 13px; color: #999; text-align: center; }
-
-        #back-home {
-            position: fixed; bottom: 20px; left: 20px; z-index: 1100; padding: 8px 16px;
-            background: rgba(30, 30, 30, 0.7); color: #f0f0f0; border: 1px solid #555;
-            border-radius: 20px; font-size: 13px; cursor: pointer; backdrop-filter: blur(4px);
-            transition: all 0.2s ease; font-family: 'Noto Serif SC', serif; text-decoration: none;
-        }
+        #back-home { position: fixed; bottom: 20px; left: 20px; z-index: 1100; padding: 8px 16px; background: rgba(30, 30, 30, 0.7); color: #f0f0f0; border: 1px solid #555; border-radius: 20px; font-size: 13px; cursor: pointer; backdrop-filter: blur(4px); transition: all 0.2s ease; font-family: 'Noto Serif SC', serif; text-decoration: none; }
         #back-home:hover { background: rgba(60, 60, 60, 0.9); border-color: #aaa; }
-
-        .ol-popup {
-            position: absolute; background-color: white; box-shadow: 0 3px 15px rgba(0,0,0,0.3);
-            border-radius: 10px; border: 1px solid #ccc; bottom: 12px; left: -50px;
-            min-width: 260px; max-width: 400px; max-height: 400px; z-index: 10; overflow: hidden;
-        }
-        .ol-popup:after, .ol-popup:before {
-            top: 100%; border: solid transparent; content: " "; height: 0; width: 0; position: absolute; pointer-events: none;
-        }
+        .ol-popup { position: absolute; background-color: white; box-shadow: 0 3px 15px rgba(0,0,0,0.3); border-radius: 10px; border: 1px solid #ccc; bottom: 12px; left: -50px; min-width: 260px; max-width: 400px; max-height: 400px; z-index: 10; overflow: hidden; }
+        .ol-popup:after, .ol-popup:before { top: 100%; border: solid transparent; content: " "; height: 0; width: 0; position: absolute; pointer-events: none; }
         .ol-popup:after { border-top-color: white; border-width: 10px; left: 48px; margin-left: -10px; }
         .ol-popup:before { border-top-color: #ccc; border-width: 11px; left: 48px; margin-left: -11px; }
         .popup-header { background: #f5f5f5; padding: 10px 15px; border-bottom: 1px solid #ddd; position: relative; }
@@ -123,23 +49,10 @@
         .popup-closer { text-decoration: none; position: absolute; top: 8px; right: 12px; font-size: 20px; font-weight: bold; color: #999; line-height: 1; cursor: pointer; }
         .popup-content-wrapper { padding: 12px 15px; max-height: 300px; overflow-y: auto; background: white; user-select: text; }
         .popup-content { font-size: 13px; line-height: 1.6; color: #444; word-wrap: break-word; white-space: normal; }
-
-        .measure-tooltip {
-            position: relative; background: rgba(0, 0, 0, 0.7); border-radius: 4px; color: white;
-            padding: 4px 8px; opacity: 0.9; white-space: nowrap; font-size: 12px; pointer-events: auto;
-            display: flex; align-items: center; gap: 6px;
-        }
-        .measure-tooltip:before {
-            border-top: 6px solid rgba(0, 0, 0, 0.7); border-right: 6px solid transparent;
-            border-left: 6px solid transparent; content: ""; position: absolute; bottom: -6px; margin-left: -7px; left: 50%;
-        }
-        .measure-delete-btn {
-            background: #ff4d4f; color: white; border-radius: 50%; width: 16px; height: 16px;
-            display: flex; align-items: center; justify-content: center; cursor: pointer;
-            font-weight: bold; font-size: 12px; line-height: 1; transition: background 0.2s;
-        }
+        .measure-tooltip { position: relative; background: rgba(0, 0, 0, 0.7); border-radius: 4px; color: white; padding: 4px 8px; opacity: 0.9; white-space: nowrap; font-size: 12px; pointer-events: auto; display: flex; align-items: center; gap: 6px; }
+        .measure-tooltip:before { border-top: 6px solid rgba(0, 0, 0, 0.7); border-right: 6px solid transparent; border-left: 6px solid transparent; content: ""; position: absolute; bottom: -6px; margin-left: -7px; left: 50%; }
+        .measure-delete-btn { background: #ff4d4f; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; font-size: 12px; line-height: 1; transition: background 0.2s; }
         .measure-delete-btn:hover { background: #ff7875; }
-
         @media (max-width: 768px) {
             #top-controls { top: auto; bottom: 20px; left: 10px; right: 10px; justify-content: space-between; gap: 5px; }
             .ctrl-btn { flex: 1; padding: 12px 0; font-size: 14px; display: flex; justify-content: center; align-items: center; }
@@ -159,19 +72,14 @@
 </head>
 <body>
     <div id="map"></div>
-
     <div id="sidebar">
         <button id="sidebar-toggle" title="折叠/展开">◀</button>
         <div class="search-box">
-            <input type="text" id="search-input" placeholder="搜索本地城址要素...">
+            <input type="text" id="search-input" placeholder="搜索本地城址要素或坐标...">
         </div>
         <div class="layer-toggles">
-            <label class="layer-toggle-item">
-                <input type="checkbox" id="toggle-main-layer" checked> 城址线型数据
-            </label>
-            <label class="layer-toggle-item">
-                <input type="checkbox" id="toggle-extra-layer" checked> 轮廓未定点位
-            </label>
+            <label class="layer-toggle-item"><input type="checkbox" id="toggle-main-layer" checked> 城址线型数据</label>
+            <label class="layer-toggle-item"><input type="checkbox" id="toggle-extra-layer" checked> 轮廓未定点位</label>
         </div>
         <div class="search-results" id="search-results">
             <div class="no-result">输入关键字搜索本地要素</div>
@@ -208,7 +116,6 @@
             ret += (160.0 * Math.sin(y / 12.0 * Math.PI) + 320 * Math.sin(y * Math.PI / 30.0)) * 2.0 / 3.0;
             return ret;
         }
-
         function transformLon(x, y) {
             let ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
             ret += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
@@ -216,7 +123,6 @@
             ret += (150.0 * Math.sin(x / 12.0 * Math.PI) + 300.0 * Math.sin(x / 30.0 * Math.PI)) * 2.0 / 3.0;
             return ret;
         }
-
         function wgs84ToGcj02(lon, lat) {
             if (outOfChina(lon, lat)) return [lon, lat];
             let dLat = transformLat(lon - 105.0, lat - 35.0);
@@ -229,11 +135,9 @@
             dLon = (dLon * 180.0) / (a / sqrtMagic * Math.cos(radLat) * Math.PI);
             return [lon + dLon, lat + dLat];
         }
-
         function outOfChina(lon, lat) {
             return lon < 72.004 || lon > 137.8347 || lat < 0.8293 || lat > 55.8271;
         }
-
         function convertCoordsRecursive(coordArray) {
             if (!NEED_GCJ02) return coordArray;
             if (Array.isArray(coordArray) && coordArray.length > 0 && typeof coordArray[0] === 'number') {
@@ -244,7 +148,6 @@
             }
             return coordArray;
         }
-
         function fromLonLat(lon, lat) {
             const x = (lon * 20037508.34) / 180;
             const y = Math.log(Math.tan(((90 + lat) * Math.PI) / 360)) / (Math.PI / 180);
@@ -262,10 +165,7 @@
         const map = new ol.Map({
             target: 'map',
             layers: [esriSatLayer],
-            view: new ol.View({
-                center: [108.94, 34.34],
-                zoom: 10
-            })
+            view: new ol.View({ center: [108.94, 34.34], zoom: 10 })
         });
 
         const searchMarkerSource = new ol.source.Vector();
@@ -319,9 +219,7 @@
 
                 batch.forEach(function(feature) {
                     const geom = feature.getGeometry();
-                    if (geom) {
-                        geom.setCoordinates(convertCoordsRecursive(geom.getCoordinates()));
-                    }
+                    if (geom) geom.setCoordinates(convertCoordsRecursive(geom.getCoordinates()));
 
                     const name = feature.get('name') || feature.get('Name') || '未命名';
                     const desc = feature.get('description') || feature.get('Description') || '';
@@ -357,9 +255,7 @@
                         statusDiv.innerText = `✅ 城址加载完成！共 ${totalCount} 个要素`;
                         setTimeout(() => { progressBar.style.display = 'none'; }, 3000);
                         const extent = vectorLayer.getSource().getExtent();
-                        if (extent && !isNaN(extent[0])) {
-                            map.getView().fit(extent, { padding: [50, 50, 50, 50] });
-                        }
+                        if (extent && !isNaN(extent[0])) map.getView().fit(extent, { padding: [50, 50, 50, 50] });
                     }
                 }
             }
@@ -370,7 +266,6 @@
             try {
                 const response = await fetch(KML_FILE);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
                 progressBar.style.display = 'block';
                 progressFill.style.width = '5%';
                 progressFill.innerText = '5%';
@@ -384,7 +279,6 @@
                     chunks.push(value);
                 }
                 const arrayBuffer = await new Blob(chunks).arrayBuffer();
-                
                 progressFill.style.width = '55%';
                 progressFill.innerText = '55%';
                 statusDiv.innerText = '正在解压...';
@@ -410,7 +304,6 @@
             try {
                 const response = await fetch(EXTRA_FILE);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                
                 const arrayBuffer = await response.arrayBuffer();
                 const isKMZ = new Uint8Array(arrayBuffer)[0] === 0x50;
 
@@ -420,15 +313,56 @@
                     zip.forEach(function(path, file) {
                         if (path.toLowerCase().endsWith('.kml')) kmlFile = file;
                     });
-                    if (kmlFile) {
-                        parseKMLAndAddFeatures(await kmlFile.async('text'), extraVectorLayer, true);
-                    }
+                    if (kmlFile) parseKMLAndAddFeatures(await kmlFile.async('text'), extraVectorLayer, true);
                 } else {
                     parseKMLAndAddFeatures(new TextDecoder('utf-8').decode(arrayBuffer), extraVectorLayer, true);
                 }
             } catch (error) {
                 console.warn(`⚠️ 额外文件加载失败: ${error.message}`);
             }
+        }
+
+        // 智能坐标解析
+        function parseCoordinates(str) {
+            let s = str.replace(/[，]/g, ',')
+                       .replace(/[东经北纬南纬西经]/g, ' ')
+                       .replace(/[°度]/g, ' ')
+                       .replace(/['′分]/g, ' ')
+                       .replace(/["″秒]/g, ' ')
+                       .replace(/\s+/g, ' ')
+                       .trim();
+
+            let isSouth = /[S南]/.test(s), isWest = /[W西]/.test(s);
+            s = s.replace(/[NSEWnsew]/g, '').trim();
+
+            let parts = s.split(/[\s,]+/).filter(Boolean);
+            let lon = null, lat = null;
+
+            if (parts.length === 2) {
+                lon = parseFloat(parts[0]);
+                lat = parseFloat(parts[1]);
+            } else if (parts.length === 6) {
+                lon = parseFloat(parts[0]) + parseFloat(parts[1])/60 + parseFloat(parts[2])/3600;
+                lat = parseFloat(parts[3]) + parseFloat(parts[4])/60 + parseFloat(parts[5])/3600;
+            } else if (parts.length === 4) {
+                lon = parseFloat(parts[0]) + parseFloat(parts[1])/60;
+                lat = parseFloat(parts[2]) + parseFloat(parts[3])/60;
+            }
+
+            if (lon !== null && lat !== null && !isNaN(lon) && !isNaN(lat)) {
+                if (isSouth) lat = -lat;
+                if (isWest) lon = -lon;
+                // 自动经纬度纠偏
+                if (Math.abs(lat) > 90 && Math.abs(lon) <= 90) {
+                    let temp = lon;
+                    lon = lat;
+                    lat = temp;
+                }
+                if (Math.abs(lon) <= 180 && Math.abs(lat) <= 90) {
+                    return [lon, lat];
+                }
+            }
+            return null;
         }
 
         const sidebar = document.getElementById('sidebar');
@@ -440,7 +374,6 @@
             sidebar.classList.add('collapsed');
             sidebarToggle.innerHTML = '▶';
         }
-
         sidebarToggle.addEventListener('click', () => {
             sidebar.classList.toggle('collapsed');
             sidebarToggle.innerHTML = sidebar.classList.contains('collapsed') ? '▶' : '◀';
@@ -462,26 +395,49 @@
         function performSearch(keyword) {
             searchMarkerSource.clear();
             let html = '';
+            const parsedCoord = parseCoordinates(keyword);
+            let isCoordSearch = false;
+
+            if (parsedCoord) {
+                isCoordSearch = true;
+                const [lon, lat] = parsedCoord;
+                html += `<div class="result-section-title">坐标定位</div>
+                         <div class="result-item coord-result" data-lon="${lon}" data-lat="${lat}">
+                             <div class="title">📍 抵达坐标: ${lon.toFixed(5)}, ${lat.toFixed(5)}</div>
+                             <div class="desc">点击定位到该位置（WGS-84原坐标）</div>
+                         </div>`;
+            }
 
             const localMatches = featureSearchIndex.filter(item => item.searchText.includes(keyword.toLowerCase()));
             const displayLocal = localMatches.slice(0, 50);
 
-            html += `<div class="result-section-title">本地要素 (${localMatches.length})</div>`;
-            if (displayLocal.length > 0) {
-                displayLocal.forEach((item) => {
-                    let snippet = item.desc.replace(/[\n\r]/g, ' ').substring(0, 40) + '...';
-                    html += `
-                        <div class="result-item local-result" data-index="${featureSearchIndex.indexOf(item)}">
-                            <div class="title">${item.name}</div>
-                            <div class="desc">${snippet}</div>
-                        </div>
-                    `;
-                });
-            } else {
-                html += '<div class="no-result" style="padding: 10px;">未找到相关要素</div>';
+            if (!isCoordSearch) {
+                html += `<div class="result-section-title">本地要素 (${localMatches.length})</div>`;
+                if (displayLocal.length > 0) {
+                    displayLocal.forEach((item) => {
+                        let snippet = item.desc.replace(/[\n\r]/g, ' ').substring(0, 40) + '...';
+                        html += `<div class="result-item local-result" data-index="${featureSearchIndex.indexOf(item)}">
+                                     <div class="title">${item.name}</div>
+                                     <div class="desc">${snippet}</div>
+                                 </div>`;
+                    });
+                } else {
+                    html += '<div class="no-result" style="padding: 10px;">未找到相关要素</div>';
+                }
             }
 
             searchResultsDiv.innerHTML = html;
+
+            document.querySelectorAll('.coord-result').forEach(el => {
+                el.addEventListener('click', function() {
+                    const lon = parseFloat(this.getAttribute('data-lon'));
+                    const lat = parseFloat(this.getAttribute('data-lat'));
+                    const coord = [lon, lat]; // 卫星图直接使用 WGS84
+                    searchMarkerSource.addFeature(new ol.Feature({ geometry: new ol.geom.Point(coord) }));
+                    map.getView().animate({ center: coord, zoom: 16, duration: 800 });
+                    showPopup('坐标定位', `经度: ${lon}<br>纬度: ${lat}`, coord);
+                });
+            });
 
             document.querySelectorAll('.local-result').forEach(el => {
                 el.addEventListener('click', function() {
@@ -512,9 +468,7 @@
             </div>
         `;
 
-        const popup = new ol.Overlay({
-            element: popupElement, positioning: 'bottom-center', offset: [0, -10], stopEvent: true
-        });
+        const popup = new ol.Overlay({ element: popupElement, positioning: 'bottom-center', offset: [0, -10], stopEvent: true });
         map.addOverlay(popup);
 
         popupElement.querySelector('.popup-closer').addEventListener('click', function() {
@@ -527,14 +481,13 @@
             popup.setPosition(coord);
         }
 
-        // 修复的点击事件
+        // 修复的点击事件（使用索引库反查数据，避免 unset 导致的属性丢失）
         map.on('click', function(event) {
             if (isMeasuring) return;
             let featureFound = false;
             
             map.forEachFeatureAtPixel(event.pixel, function(feature, layer) {
                 if (layer === vectorLayer || layer === extraVectorLayer) {
-                    // 从索引库反查真实数据
                     const idx = featureSearchIndex.findIndex(item => item.feature === feature);
                     let name = '（无标题）';
                     let description = '';
@@ -560,21 +513,14 @@
             source: new ol.source.Vector(),
             style: new ol.style.Style({
                 stroke: new ol.style.Stroke({ color: '#ffffff', width: 4, lineJoin: 'round', lineCap: 'round' }),
-                image: new ol.style.Circle({
-                    radius: 10,
-                    fill: new ol.style.Fill({ color: 'rgba(255, 255, 255, 0.4)' }),
-                    stroke: new ol.style.Stroke({ color: '#ffffff', width: 3 })
-                })
+                image: new ol.style.Circle({ radius: 10, fill: new ol.style.Fill({ color: 'rgba(255, 255, 255, 0.4)' }), stroke: new ol.style.Stroke({ color: '#ffffff', width: 3 }) })
             }),
             zIndex: 50
         });
         map.addLayer(highlightOverlay);
 
         map.on('pointermove', function(event) {
-            if (isMeasuring) {
-                map.getTargetElement().style.cursor = 'crosshair';
-                return;
-            }
+            if (isMeasuring) { map.getTargetElement().style.cursor = 'crosshair'; return; }
             if (event.dragging) return;
 
             const feature = map.forEachFeatureAtPixel(event.pixel, function(feat, layer) {
@@ -595,14 +541,9 @@
                         if (origStyle) {
                             const img = origStyle.getImage();
                             if (img) {
-                                const clonedImg = img.clone();
-                                highlightFeature.setStyle(new ol.style.Style({ image: clonedImg }));
+                                highlightFeature.setStyle(new ol.style.Style({ image: img.clone() }));
                             } else {
-                                highlightFeature.setStyle(new ol.style.Style({
-                                    image: new ol.style.Circle({
-                                        radius: 6, fill: new ol.style.Fill({ color: '#fff' })
-                                    })
-                                }));
+                                highlightFeature.setStyle(new ol.style.Style({ image: new ol.style.Circle({ radius: 6, fill: new ol.style.Fill({ color: '#fff' }) }) }));
                             }
                         }
                     }
@@ -669,27 +610,20 @@
 
         let activeTooltipElement = document.createElement('div');
         activeTooltipElement.className = 'measure-tooltip';
-        let activeTooltip = new ol.Overlay({
-            element: activeTooltipElement, offset: [0, -15], positioning: 'bottom-center', stopEvent: false
-        });
+        let activeTooltip = new ol.Overlay({ element: activeTooltipElement, offset: [0, -15], positioning: 'bottom-center', stopEvent: false });
         map.addOverlay(activeTooltip);
 
         function formatLength(line) {
             const length = ol.sphere.getLength(line, {projection: 'EPSG:4326'});
-            if (length > 1000) return (Math.round(length / 1000 * 100) / 100) + ' 公里';
-            return (Math.round(length * 100) / 100) + ' 米';
+            return length > 1000 ? (Math.round(length / 1000 * 100) / 100) + ' 公里' : (Math.round(length * 100) / 100) + ' 米';
         }
-
         function formatArea(polygon) {
             const area = ol.sphere.getArea(polygon, {projection: 'EPSG:4326'});
-            if (area > 1000000) return (Math.round(area / 1000000 * 100) / 100) + ' 平方公里';
-            return (Math.round(area * 100) / 100) + ' 平方米';
+            return area > 1000000 ? (Math.round(area / 1000000 * 100) / 100) + ' 平方公里' : (Math.round(area * 100) / 100) + ' 平方米';
         }
-
         function clearAllMeasures() {
             measureSource.getFeatures().forEach(function(feature) {
-                const tooltip = feature.get('tooltip');
-                if (tooltip) map.removeOverlay(tooltip);
+                const tooltip = feature.get('tooltip'); if (tooltip) map.removeOverlay(tooltip);
             });
             measureSource.clear();
             activeTooltip.setPosition(undefined);
@@ -703,8 +637,7 @@
                     const featureId = e.target.getAttribute('data-id');
                     const feature = measureSource.getFeatureById(featureId);
                     if (feature) {
-                        const tooltip = feature.get('tooltip');
-                        if (tooltip) map.removeOverlay(tooltip);
+                        const tooltip = feature.get('tooltip'); if (tooltip) map.removeOverlay(tooltip);
                         measureSource.removeFeature(feature);
                     }
                 }, 100);
@@ -714,7 +647,6 @@
         function addMeasureInteraction(type) {
             if (drawInteraction) map.removeInteraction(drawInteraction);
             clearAllMeasures();
-
             currentMeasureType = type;
             isMeasuring = true;
             map.getTargetElement().style.cursor = 'crosshair';
@@ -736,7 +668,6 @@
             drawInteraction.on('drawstart', function(evt) {
                 let sketch = evt.feature;
                 let tooltipCoord = evt.coordinate;
-
                 sketch.getGeometry().on('change', function(evt) {
                     let geom = evt.target;
                     let output;
@@ -779,11 +710,7 @@
         const btnLine = document.getElementById('measure-line-btn');
         const btnArea = document.getElementById('measure-area-btn');
 
-        function resetButtons() {
-            btnLine.classList.remove('active');
-            btnArea.classList.remove('active');
-        }
-
+        function resetButtons() { btnLine.classList.remove('active'); btnArea.classList.remove('active'); }
         function stopMeasuring() {
             if (drawInteraction) map.removeInteraction(drawInteraction);
             isMeasuring = false;
