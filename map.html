@@ -18,10 +18,20 @@
         #progress-bar {
             position: fixed; bottom: 20px; left: 20px; right: 20px; height: 30px;
             background: rgba(0,0,0,0.7); border-radius: 15px; z-index: 1000; display: none;
+            overflow: hidden;
         }
         #progress-fill {
             height: 100%; background: #4CAF50; border-radius: 15px; width: 0%;
             transition: width 0.3s; line-height: 30px; color: white; text-align: center; font-size: 14px;
+            position: relative;
+        }
+        /* 进度条中心提示文字 */
+        #progress-tip {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 13px; font-weight: 500; pointer-events: none;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            letter-spacing: 1px;
         }
         #status {
             position: fixed; bottom: 60px; left: 20px; background: rgba(0,0,0,0.7); color: white;
@@ -202,7 +212,11 @@
         </div>
     </div>
     
-    <div id="progress-bar"><div id="progress-fill">0%</div></div>
+    <!-- 进度条与提示 -->
+    <div id="progress-bar">
+        <div id="progress-fill">0%</div>
+        <div id="progress-tip">初次加载速度可能较慢，请耐心等待</div>
+    </div>
     <div id="status">准备加载数据...</div>
     
     <div id="top-controls">
@@ -218,7 +232,7 @@
         // 1. 全局配置与坐标转换
         // ============================================================
         const KML_FILE = '城址.kmz';
-        const EXTRA_FILE = '轮廓未定.kmz'; // 新增的额外数据文件
+        const EXTRA_FILE = '轮廓未定.kmz'; 
         const AMAP_KEY = 'b9989c3b248bd63e3358e0d92dc122f7'; 
 
         ol.proj.useGeographic();
@@ -291,7 +305,6 @@
             view: new ol.View({ center: fromLonLat(108.94, 34.34), zoom: 10 })
         });
 
-        // 搜索红点图层
         const searchMarkerSource = new ol.source.Vector();
         const searchMarkerLayer = new ol.layer.Vector({
             source: searchMarkerSource,
@@ -308,23 +321,23 @@
         const statusDiv = document.getElementById('status');
         const progressBar = document.getElementById('progress-bar');
         const progressFill = document.getElementById('progress-fill');
+        const progressTip = document.getElementById('progress-tip');
 
         // ============================================================
         // 3. 矢量图层 (主图层 & 额外点图层)
         // ============================================================
         
-        // 主数据图层 (线)
         const vectorLayer = new ol.layer.Vector({ source: new ol.source.Vector() });
         map.addLayer(vectorLayer);
         vectorLayer.setZIndex(2);
 
-        // 新增数据图层 (点)
-        // 注意：这里没有强行写 style，所以会直接读取 KML 内自带的图标样式
+        // 额外点图层（设置 declareCollapsed 为 false 以不渲染 KML 自带的文字标签）
         const extraVectorLayer = new ol.layer.Vector({ 
-            source: new ol.source.Vector()
+            source: new ol.source.Vector(),
+            declutter: false // 不启用冲突检测，避免标签被挤出来
         });
         map.addLayer(extraVectorLayer);
-        extraVectorLayer.setZIndex(3); // 放在主线图层上方
+        extraVectorLayer.setZIndex(3); 
 
         // 绑定图层显隐开关事件
         document.getElementById('toggle-main-layer').addEventListener('change', function(e) {
@@ -340,7 +353,6 @@
         let featureSearchIndex = []; 
 
         function parseKMLAndAddFeatures(kmlContent, targetLayer, isExtra = false) {
-            // extractStyles: true 会保留 KML 里的点图标样式和线颜色
             const format = new ol.format.KML({ extractStyles: true });
             const features = format.readFeatures(kmlContent, { featureProjection: 'EPSG:4326' });
 
@@ -348,7 +360,8 @@
 
             const totalCount = features.length;
             let addedCount = 0;
-            const batchSize = 200; 
+            // 提升加载速度：把批次调大，间隔调短
+            const batchSize = 2000; 
 
             function addBatch() {
                 const end = Math.min(addedCount + batchSize, totalCount);
@@ -357,32 +370,44 @@
                 batch.forEach(function(feature) {
                     const geom = feature.getGeometry();
                     if (geom) {
-                        // 将坐标转换为高德坐标
                         geom.setCoordinates(convertCoordsRecursive(geom.getCoordinates()));
                     }
-                    const name = feature.get('name') || feature.get('Name') || '未命名';
-                    const desc = feature.get('description') || feature.get('Description') || '';
-                    const searchText = (name + ' ' + desc).toLowerCase();
-                    
-                    // 将新数据也加入搜索库中
-                    featureSearchIndex.push({
-                        feature: feature, name: name, desc: desc, searchText: searchText, layer: targetLayer
-                    });
+
+                    // 如果是额外文件，彻底清除标签和描述属性，防止地图上标红点旁边的文字
+                    if (isExtra) {
+                        feature.unset('name');
+                        feature.unset('Name');
+                        feature.unset('description');
+                        feature.unset('Description');
+                    } else {
+                        const name = feature.get('name') || feature.get('Name') || '未命名';
+                        const desc = feature.get('description') || feature.get('Description') || '';
+                        const searchText = (name + ' ' + desc).toLowerCase();
+                        
+                        // 将主线数据加入搜索库
+                        featureSearchIndex.push({
+                            feature: feature, name: name, desc: desc, searchText: searchText, layer: targetLayer
+                        });
+                    }
                 });
 
                 targetLayer.getSource().addFeatures(batch);
                 addedCount = end;
 
                 if (!isExtra) {
-                    // 主线数据才更新进度条
                     const percent = Math.round(55 + (addedCount / totalCount) * 45);
                     progressFill.style.width = percent + '%';
                     progressFill.innerText = percent + '%';
                     statusDiv.innerText = `已加载城址 ${addedCount} / ${totalCount}`;
+
+                    // 进度超过 50% 隐藏提示
+                    if (percent > 50) {
+                        progressTip.style.display = 'none';
+                    }
                 }
 
                 if (addedCount < totalCount) {
-                    setTimeout(addBatch, 50);
+                    setTimeout(addBatch, 10); // 间隔缩短为 10ms
                 } else {
                     if (!isExtra) {
                         statusDiv.innerText = `✅ 城址加载完成！共 ${totalCount} 个要素`;
@@ -394,7 +419,7 @@
                     }
                 }
             }
-            setTimeout(addBatch, 100);
+            setTimeout(addBatch, 50);
         }
 
         async function loadMainData() {
@@ -404,6 +429,7 @@
 
                 progressBar.style.display = 'block';
                 progressFill.style.width = '5%';
+                progressFill.innerText = '5%';
                 statusDiv.innerText = '正在下载城址数据...';
 
                 const reader = response.body.getReader();
@@ -416,6 +442,7 @@
                 const arrayBuffer = await new Blob(chunks).arrayBuffer();
                 
                 progressFill.style.width = '55%';
+                progressFill.innerText = '55%';
                 statusDiv.innerText = '正在解压...';
 
                 const isKMZ = new Uint8Array(arrayBuffer)[0] === 0x50;
@@ -435,7 +462,6 @@
             }
         }
 
-        // 加载额外文件
         async function loadExtraData() {
             try {
                 const response = await fetch(EXTRA_FILE);
@@ -519,7 +545,6 @@
 
             searchResultsDiv.innerHTML = html;
 
-            // 绑定本地结果点击事件
             document.querySelectorAll('.local-result').forEach(el => {
                 el.addEventListener('click', function() {
                     const idx = parseInt(this.getAttribute('data-index'));
@@ -529,14 +554,13 @@
                     
                     if (geom instanceof ol.geom.Polygon) coord = geom.getInteriorPoint().getCoordinates();
                     else if (geom instanceof ol.geom.LineString) coord = geom.getCoordinateAt(0.5);
-                    else coord = geom.getCoordinates(); // 点类型
+                    else coord = geom.getCoordinates(); 
 
                     map.getView().animate({ center: coord, zoom: 16, duration: 500 });
                     showPopup(item.name, item.desc, coord);
                 });
             });
 
-            // 高德搜索
             if (AMAP_KEY && AMAP_KEY !== '你的高德Web服务Key') {
                 fetch(`https://restapi.amap.com/v3/place/text?keywords=${encodeURIComponent(keyword)}&key=${AMAP_KEY}&offset=10&page=1`)
                     .then(res => res.json())
@@ -626,14 +650,20 @@
         });
 
         // ============================================================
-        // 7. 鼠标悬停高亮逻辑
+        // 7. 鼠标悬停高亮逻辑 (支持线和点)
         // ============================================================
         let lastHighlightedFeature = null;
         let highlightOverlay = new ol.layer.Vector({
             source: new ol.source.Vector(),
-            // 这里的高亮样式对线条是加粗白线，如果点也有高亮需求可以再加 image
             style: new ol.style.Style({
-                stroke: new ol.style.Stroke({ color: '#ffffff', width: 4, lineJoin: 'round', lineCap: 'round' })
+                // 线的白色高亮
+                stroke: new ol.style.Stroke({ color: '#ffffff', width: 4, lineJoin: 'round', lineCap: 'round' }),
+                // 点的白色高亮外圈（如果遇到点要素）
+                image: new ol.style.Circle({
+                    radius: 10,
+                    fill: new ol.style.Fill({ color: 'rgba(255, 255, 255, 0.4)' }),
+                    stroke: new ol.style.Stroke({ color: '#ffffff', width: 3 })
+                })
             }),
             zIndex: 50
         });
@@ -655,9 +685,33 @@
                 lastHighlightedFeature = feature;
                 
                 if (feature) {
-                    const highlightFeature = new ol.Feature(feature.getGeometry().clone());
-                    // 如果原要素有点样式，高亮时也尝试继承原图标
-                    if (feature.getStyle()) highlightFeature.setStyle(feature.getStyle());
+                    const geom = feature.getGeometry();
+                    const highlightFeature = new ol.Feature(geom.clone());
+                    
+                    // 如果悬停的是点，直接把原点的图标样式赋给它（这样中间是原图标，外面套我们配置的白圈）
+                    if (geom.getType() === 'Point') {
+                        let origStyle = feature.getStyle();
+                        if (typeof origStyle === 'function') origStyle = origStyle(feature);
+                        if (origStyle) {
+                            const img = origStyle.getImage();
+                            if (img) {
+                                // 克隆原图标，避免修改原要素样式
+                                const clonedImg = img.clone();
+                                highlightFeature.setStyle(new ol.style.Style({
+                                    image: clonedImg,
+                                    // 这里可以用 Z 轴让图标飘在白圈上面，但 OL 不支持 Z，所以我们在高亮层再画一个白圈
+                                }));
+                            } else {
+                                // 如果原图标拿不到，用个白底圆点兜底
+                                highlightFeature.setStyle(new ol.style.Style({
+                                    image: new ol.style.Circle({
+                                        radius: 6, fill: new ol.style.Fill({ color: '#fff' })
+                                    })
+                                }));
+                            }
+                        }
+                    }
+                    
                     highlightOverlay.getSource().addFeature(highlightFeature);
                     map.getTargetElement().style.cursor = 'pointer';
                 } else {
