@@ -14,7 +14,6 @@
         }
         #map { width: 100%; height: 100%; }
 
-        /* ========== 加载进度条 ========== */
         #progress-bar {
             position: fixed; bottom: 20px; left: 20px; right: 20px; height: 30px;
             background: rgba(0,0,0,0.7); border-radius: 15px; z-index: 1000; display: none;
@@ -37,7 +36,6 @@
             padding: 8px 15px; border-radius: 20px; font-size: 12px; z-index: 1000; font-family: monospace;
         }
 
-        /* ========== 顶部右侧控制按钮组 ========== */
         #top-controls {
             position: fixed; top: 20px; right: 20px; z-index: 1100; display: flex; gap: 10px;
         }
@@ -50,7 +48,6 @@
         .ctrl-btn:hover { background: rgba(60, 60, 60, 0.95); border-color: #aaa; transform: scale(1.02); }
         .ctrl-btn.active { background: rgba(200, 180, 100, 0.9); color: #1a1a1a; border-color: #cbb77a; }
 
-        /* ========== 搜索侧边栏 ========== */
         #sidebar {
             position: fixed; top: 20px; left: 20px; bottom: 80px; width: 320px;
             background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
@@ -78,29 +75,16 @@
         }
         .search-box input:focus { border-color: #bbaa92; background: #fff; }
 
-        /* ========== 图层开关 ========== */
         .layer-toggles {
-            padding: 12px 15px;
-            background: #fafafa;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+            padding: 12px 15px; background: #fafafa; border-bottom: 1px solid #eee;
+            display: flex; flex-direction: column; gap: 10px;
         }
         .layer-toggle-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13.5px;
-            color: #333;
-            cursor: pointer;
-            font-weight: 500;
+            display: flex; align-items: center; gap: 8px;
+            font-size: 13.5px; color: #333; cursor: pointer; font-weight: 500;
         }
         .layer-toggle-item input[type="checkbox"] {
-            accent-color: #3d352a;
-            width: 16px;
-            height: 16px;
-            cursor: pointer;
+            accent-color: #3d352a; width: 16px; height: 16px; cursor: pointer;
         }
 
         .search-results { flex: 1; overflow-y: auto; padding: 10px 0; }
@@ -116,7 +100,6 @@
         .result-item .desc { font-size: 12px; color: #777; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .no-result { padding: 15px; font-size: 13px; color: #999; text-align: center; }
 
-        /* ========== 返回首页 ========== */
         #back-home {
             position: fixed; bottom: 20px; left: 20px; z-index: 1100; padding: 8px 16px;
             background: rgba(30, 30, 30, 0.7); color: #f0f0f0; border: 1px solid #555;
@@ -125,7 +108,6 @@
         }
         #back-home:hover { background: rgba(60, 60, 60, 0.9); border-color: #aaa; }
 
-        /* ========== 弹窗 ========== */
         .ol-popup {
             position: absolute; background-color: white; box-shadow: 0 3px 15px rgba(0,0,0,0.3);
             border-radius: 10px; border: 1px solid #ccc; bottom: 12px; left: -50px;
@@ -142,7 +124,6 @@
         .popup-content-wrapper { padding: 12px 15px; max-height: 300px; overflow-y: auto; background: white; user-select: text; }
         .popup-content { font-size: 13px; line-height: 1.6; color: #444; word-wrap: break-word; white-space: normal; }
 
-        /* ========== 测量提示框 ========== */
         .measure-tooltip {
             position: relative; background: rgba(0, 0, 0, 0.7); border-radius: 4px; color: white;
             padding: 4px 8px; opacity: 0.9; white-space: nowrap; font-size: 12px; pointer-events: auto;
@@ -159,19 +140,10 @@
         }
         .measure-delete-btn:hover { background: #ff7875; }
 
-        /* ============================================================
-           移动端专属适配
-           ============================================================ */
         @media (max-width: 768px) {
-            #top-controls {
-                top: auto; bottom: 20px; left: 10px; right: 10px; justify-content: space-between; gap: 5px;
-            }
-            .ctrl-btn {
-                flex: 1; padding: 12px 0; font-size: 14px; display: flex; justify-content: center; align-items: center;
-            }
-            #sidebar {
-                top: 10px; left: 10px; bottom: 75px; width: calc(100vw - 20px); max-width: none;
-            }
+            #top-controls { top: auto; bottom: 20px; left: 10px; right: 10px; justify-content: space-between; gap: 5px; }
+            .ctrl-btn { flex: 1; padding: 12px 0; font-size: 14px; display: flex; justify-content: center; align-items: center; }
+            #sidebar { top: 10px; left: 10px; bottom: 75px; width: calc(100vw - 20px); max-width: none; }
             #sidebar.collapsed { transform: translateX(-100%); }
             #sidebar-toggle { width: 32px; height: 54px; right: -24px; font-size: 16px; border-radius: 0 8px 8px 0; }
             #sidebar.collapsed #sidebar-toggle { right: -44px; border-radius: 8px; box-shadow: 2px 0 12px rgba(0,0,0,0.2); }
@@ -188,15 +160,11 @@
 <body>
     <div id="map"></div>
 
-    <!-- ================= 搜索侧边栏 ================= -->
     <div id="sidebar">
         <button id="sidebar-toggle" title="折叠/展开">◀</button>
-
         <div class="search-box">
             <input type="text" id="search-input" placeholder="搜索本地城址要素...">
         </div>
-
-        <!-- 图层开关区 -->
         <div class="layer-toggles">
             <label class="layer-toggle-item">
                 <input type="checkbox" id="toggle-main-layer" checked> 城址线型数据
@@ -205,13 +173,11 @@
                 <input type="checkbox" id="toggle-extra-layer" checked> 轮廓未定点位
             </label>
         </div>
-
         <div class="search-results" id="search-results">
             <div class="no-result">输入关键字搜索本地要素</div>
         </div>
     </div>
 
-    <!-- 进度条与提示 -->
     <div id="progress-bar">
         <div id="progress-fill">0%</div>
         <div id="progress-tip">初次加载速度可能较慢，请耐心等待</div>
@@ -227,17 +193,11 @@
     <a id="back-home" href="index.html">← 返回首页</a>
 
     <script>
-        // ============================================================
-        // 1. 全局配置与坐标转换
-        // ============================================================
         const KML_FILE = '城址.kmz';
         const EXTRA_FILE = '轮廓未定.kmz';
-
-        // 卫星图页面：数据源为 WGS-84，无需 GCJ02 纠偏
         const NEED_GCJ02 = false;
 
         ol.proj.useGeographic();
-
         const a = 6378245.0;
         const ee = 0.00669342162296594323;
 
@@ -275,7 +235,7 @@
         }
 
         function convertCoordsRecursive(coordArray) {
-            if (!NEED_GCJ02) return coordArray;  // 卫星图页面直接返回，不做任何转换
+            if (!NEED_GCJ02) return coordArray;
             if (Array.isArray(coordArray) && coordArray.length > 0 && typeof coordArray[0] === 'number') {
                 const gcj = wgs84ToGcj02(coordArray[0], coordArray[1]);
                 return coordArray.length === 3 ? [gcj[0], gcj[1], coordArray[2]] : gcj;
@@ -285,16 +245,12 @@
             return coordArray;
         }
 
-        // 保留 fromLonLat 定义（本页面未使用，兼容其他可能引用）
         function fromLonLat(lon, lat) {
             const x = (lon * 20037508.34) / 180;
             const y = Math.log(Math.tan(((90 + lat) * Math.PI) / 360)) / (Math.PI / 180);
             return [x, (y * 20037508.34) / 180];
         }
 
-        // ============================================================
-        // 2. 初始化地图（Esri World Imagery，WGS-84 坐标系）
-        // ============================================================
         const esriSatLayer = new ol.layer.Tile({
             source: new ol.source.XYZ({
                 url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -307,7 +263,7 @@
             target: 'map',
             layers: [esriSatLayer],
             view: new ol.View({
-                center: [108.94, 34.34],  // 视图是 EPSG:4326，直接用经纬度
+                center: [108.94, 34.34],
                 zoom: 10
             })
         });
@@ -330,22 +286,14 @@
         const progressFill = document.getElementById('progress-fill');
         const progressTip = document.getElementById('progress-tip');
 
-        // ============================================================
-        // 3. 矢量图层 (主图层 & 额外点图层)
-        // ============================================================
         const vectorLayer = new ol.layer.Vector({ source: new ol.source.Vector() });
         map.addLayer(vectorLayer);
         vectorLayer.setZIndex(2);
 
-        // 额外点图层
-        const extraVectorLayer = new ol.layer.Vector({
-            source: new ol.source.Vector(),
-            declutter: false
-        });
+        const extraVectorLayer = new ol.layer.Vector({ source: new ol.source.Vector(), declutter: false });
         map.addLayer(extraVectorLayer);
         extraVectorLayer.setZIndex(3);
 
-        // 绑定图层显隐开关事件
         document.getElementById('toggle-main-layer').addEventListener('change', function(e) {
             vectorLayer.setVisible(e.target.checked);
         });
@@ -353,9 +301,6 @@
             extraVectorLayer.setVisible(e.target.checked);
         });
 
-        // ============================================================
-        // 4. 解析与加载数据
-        // ============================================================
         let featureSearchIndex = [];
 
         function parseKMLAndAddFeatures(kmlContent, targetLayer, isExtra = false) {
@@ -375,23 +320,22 @@
                 batch.forEach(function(feature) {
                     const geom = feature.getGeometry();
                     if (geom) {
-                        // 卫星图页面 NEED_GCJ02=false，这里直接返回原坐标
                         geom.setCoordinates(convertCoordsRecursive(geom.getCoordinates()));
                     }
+
+                    const name = feature.get('name') || feature.get('Name') || '未命名';
+                    const desc = feature.get('description') || feature.get('Description') || '';
+                    const searchText = (name + ' ' + desc).toLowerCase();
+
+                    featureSearchIndex.push({
+                        feature: feature, name: name, desc: desc, searchText: searchText, layer: targetLayer
+                    });
 
                     if (isExtra) {
                         feature.unset('name');
                         feature.unset('Name');
                         feature.unset('description');
                         feature.unset('Description');
-                    } else {
-                        const name = feature.get('name') || feature.get('Name') || '未命名';
-                        const desc = feature.get('description') || feature.get('Description') || '';
-                        const searchText = (name + ' ' + desc).toLowerCase();
-
-                        featureSearchIndex.push({
-                            feature: feature, name: name, desc: desc, searchText: searchText, layer: targetLayer
-                        });
                     }
                 });
 
@@ -440,7 +384,7 @@
                     chunks.push(value);
                 }
                 const arrayBuffer = await new Blob(chunks).arrayBuffer();
-
+                
                 progressFill.style.width = '55%';
                 progressFill.innerText = '55%';
                 statusDiv.innerText = '正在解压...';
@@ -466,7 +410,7 @@
             try {
                 const response = await fetch(EXTRA_FILE);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
+                
                 const arrayBuffer = await response.arrayBuffer();
                 const isKMZ = new Uint8Array(arrayBuffer)[0] === 0x50;
 
@@ -487,9 +431,6 @@
             }
         }
 
-        // ============================================================
-        // 5. 侧边栏与本地搜索（已移除高德 POI）
-        // ============================================================
         const sidebar = document.getElementById('sidebar');
         const sidebarToggle = document.getElementById('sidebar-toggle');
         const searchInput = document.getElementById('search-input');
@@ -559,9 +500,6 @@
             });
         }
 
-        // ============================================================
-        // 6. 弹窗功能
-        // ============================================================
         const popupElement = document.createElement('div');
         popupElement.className = 'ol-popup';
         popupElement.innerHTML = `
@@ -589,13 +527,26 @@
             popup.setPosition(coord);
         }
 
+        // 修复的点击事件
         map.on('click', function(event) {
             if (isMeasuring) return;
             let featureFound = false;
+            
             map.forEachFeatureAtPixel(event.pixel, function(feature, layer) {
                 if (layer === vectorLayer || layer === extraVectorLayer) {
-                    let name = feature.get('name') || feature.get('Name') || '（无标题）';
-                    let description = feature.get('description') || feature.get('Description') || '';
+                    // 从索引库反查真实数据
+                    const idx = featureSearchIndex.findIndex(item => item.feature === feature);
+                    let name = '（无标题）';
+                    let description = '';
+                    
+                    if (idx !== -1) {
+                        name = featureSearchIndex[idx].name;
+                        description = featureSearchIndex[idx].desc;
+                    } else {
+                        name = feature.get('name') || feature.get('Name') || '（无标题）';
+                        description = feature.get('description') || feature.get('Description') || '';
+                    }
+
                     showPopup(name, description, event.coordinate);
                     featureFound = true;
                     return true;
@@ -604,9 +555,6 @@
             if (!featureFound) popup.setPosition(undefined);
         });
 
-        // ============================================================
-        // 7. 鼠标悬停高亮逻辑
-        // ============================================================
         let lastHighlightedFeature = null;
         let highlightOverlay = new ol.layer.Vector({
             source: new ol.source.Vector(),
@@ -667,9 +615,6 @@
             }
         });
 
-        // ============================================================
-        // 8. 关灯模式
-        // ============================================================
         const toggleBtn = document.getElementById('light-toggle');
         let darkMode = false;
 
@@ -706,9 +651,6 @@
             toggleBtn.classList.toggle('active', darkMode);
         });
 
-        // ============================================================
-        // 9. 测距与测面积
-        // ============================================================
         let isMeasuring = false;
         let currentMeasureType = null;
         let drawInteraction = null;
@@ -861,7 +803,6 @@
             resetButtons(); this.classList.add('active'); addMeasureInteraction('area');
         });
 
-        // 启动加载
         loadMainData();
         loadExtraData();
     </script>
