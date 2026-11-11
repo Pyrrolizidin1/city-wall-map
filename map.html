@@ -68,6 +68,31 @@
             font-size: 14px; outline: none; box-sizing: border-box; background: #f8f8f8; transition: border-color 0.2s;
         }
         .search-box input:focus { border-color: #bbaa92; background: #fff; }
+
+        /* ========== 图层开关 ========== */
+        .layer-toggles {
+            padding: 12px 15px;
+            background: #fafafa;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .layer-toggle-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13.5px;
+            color: #333;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .layer-toggle-item input[type="checkbox"] {
+            accent-color: #3d352a;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
         
         .search-results { flex: 1; overflow-y: auto; padding: 10px 0; }
         .search-results::-webkit-scrollbar { width: 6px; }
@@ -154,11 +179,24 @@
 <body>
     <div id="map"></div>
 
+    <!-- ================= 搜索侧边栏 ================= -->
     <div id="sidebar">
         <button id="sidebar-toggle" title="折叠/展开">◀</button>
+        
         <div class="search-box">
             <input type="text" id="search-input" placeholder="搜索地名或城址...">
         </div>
+        
+        <!-- 图层开关区 -->
+        <div class="layer-toggles">
+            <label class="layer-toggle-item">
+                <input type="checkbox" id="toggle-main-layer" checked> 城址线型数据
+            </label>
+            <label class="layer-toggle-item">
+                <input type="checkbox" id="toggle-extra-layer" checked> 轮廓未定点位
+            </label>
+        </div>
+
         <div class="search-results" id="search-results">
             <div class="no-result">输入关键字开始搜索</div>
         </div>
@@ -180,6 +218,7 @@
         // 1. 全局配置与坐标转换
         // ============================================================
         const KML_FILE = '城址.kmz';
+        const EXTRA_FILE = '轮廓未定.kmz'; // 新增的额外数据文件
         const AMAP_KEY = 'b9989c3b248bd63e3358e0d92dc122f7'; 
 
         ol.proj.useGeographic();
@@ -252,6 +291,7 @@
             view: new ol.View({ center: fromLonLat(108.94, 34.34), zoom: 10 })
         });
 
+        // 搜索红点图层
         const searchMarkerSource = new ol.source.Vector();
         const searchMarkerLayer = new ol.layer.Vector({
             source: searchMarkerSource,
@@ -270,23 +310,41 @@
         const progressFill = document.getElementById('progress-fill');
 
         // ============================================================
-        // 3. 业务矢量图层 & 数据索引
+        // 3. 矢量图层 (主图层 & 额外点图层)
         // ============================================================
+        
+        // 主数据图层 (线)
         const vectorLayer = new ol.layer.Vector({ source: new ol.source.Vector() });
         map.addLayer(vectorLayer);
         vectorLayer.setZIndex(2);
 
+        // 新增数据图层 (点)
+        // 注意：这里没有强行写 style，所以会直接读取 KML 内自带的图标样式
+        const extraVectorLayer = new ol.layer.Vector({ 
+            source: new ol.source.Vector()
+        });
+        map.addLayer(extraVectorLayer);
+        extraVectorLayer.setZIndex(3); // 放在主线图层上方
+
+        // 绑定图层显隐开关事件
+        document.getElementById('toggle-main-layer').addEventListener('change', function(e) {
+            vectorLayer.setVisible(e.target.checked);
+        });
+        document.getElementById('toggle-extra-layer').addEventListener('change', function(e) {
+            extraVectorLayer.setVisible(e.target.checked);
+        });
+
+        // ============================================================
+        // 4. 解析与加载数据
+        // ============================================================
         let featureSearchIndex = []; 
 
-        function parseKMLAndAddFeatures(kmlContent) {
+        function parseKMLAndAddFeatures(kmlContent, targetLayer, isExtra = false) {
+            // extractStyles: true 会保留 KML 里的点图标样式和线颜色
             const format = new ol.format.KML({ extractStyles: true });
             const features = format.readFeatures(kmlContent, { featureProjection: 'EPSG:4326' });
 
-            if (features.length === 0) {
-                statusDiv.innerText = '❌ 未解析到任何要素';
-                progressBar.style.display = 'none';
-                return;
-            }
+            if (features.length === 0) return;
 
             const totalCount = features.length;
             let addedCount = 0;
@@ -299,48 +357,54 @@
                 batch.forEach(function(feature) {
                     const geom = feature.getGeometry();
                     if (geom) {
+                        // 将坐标转换为高德坐标
                         geom.setCoordinates(convertCoordsRecursive(geom.getCoordinates()));
                     }
                     const name = feature.get('name') || feature.get('Name') || '未命名';
                     const desc = feature.get('description') || feature.get('Description') || '';
                     const searchText = (name + ' ' + desc).toLowerCase();
                     
+                    // 将新数据也加入搜索库中
                     featureSearchIndex.push({
-                        feature: feature, name: name, desc: desc, searchText: searchText
+                        feature: feature, name: name, desc: desc, searchText: searchText, layer: targetLayer
                     });
                 });
 
-                vectorLayer.getSource().addFeatures(batch);
+                targetLayer.getSource().addFeatures(batch);
                 addedCount = end;
 
-                const percent = Math.round(55 + (addedCount / totalCount) * 45);
-                progressFill.style.width = percent + '%';
-                progressFill.innerText = percent + '%';
-                statusDiv.innerText = `已添加 ${addedCount} / ${totalCount} 个要素`;
+                if (!isExtra) {
+                    // 主线数据才更新进度条
+                    const percent = Math.round(55 + (addedCount / totalCount) * 45);
+                    progressFill.style.width = percent + '%';
+                    progressFill.innerText = percent + '%';
+                    statusDiv.innerText = `已加载城址 ${addedCount} / ${totalCount}`;
+                }
 
                 if (addedCount < totalCount) {
                     setTimeout(addBatch, 50);
                 } else {
-                    statusDiv.innerText = `✅ 加载完成！共 ${totalCount} 个要素`;
-                    setTimeout(() => { progressBar.style.display = 'none'; }, 3000);
-                    const extent = vectorLayer.getSource().getExtent();
-                    if (extent && !isNaN(extent[0])) {
-                        map.getView().fit(extent, { padding: [50, 50, 50, 50] });
+                    if (!isExtra) {
+                        statusDiv.innerText = `✅ 城址加载完成！共 ${totalCount} 个要素`;
+                        setTimeout(() => { progressBar.style.display = 'none'; }, 3000);
+                        const extent = vectorLayer.getSource().getExtent();
+                        if (extent && !isNaN(extent[0])) {
+                            map.getView().fit(extent, { padding: [50, 50, 50, 50] });
+                        }
                     }
                 }
             }
             setTimeout(addBatch, 100);
         }
 
-        async function loadMapData() {
+        async function loadMainData() {
             try {
                 const response = await fetch(KML_FILE);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
                 progressBar.style.display = 'block';
                 progressFill.style.width = '5%';
-                progressFill.innerText = '5%';
-                statusDiv.innerText = '正在下载数据...';
+                statusDiv.innerText = '正在下载城址数据...';
 
                 const reader = response.body.getReader();
                 const chunks = [];
@@ -349,16 +413,36 @@
                     if (done) break;
                     chunks.push(value);
                 }
-
-                const blob = new Blob(chunks);
-                const arrayBuffer = await blob.arrayBuffer();
+                const arrayBuffer = await new Blob(chunks).arrayBuffer();
                 
                 progressFill.style.width = '55%';
-                progressFill.innerText = '55%';
                 statusDiv.innerText = '正在解压...';
 
-                const uint8Array = new Uint8Array(arrayBuffer);
-                const isKMZ = uint8Array[0] === 0x50 && uint8Array[1] === 0x4B;
+                const isKMZ = new Uint8Array(arrayBuffer)[0] === 0x50;
+                if (isKMZ) {
+                    const zip = await JSZip.loadAsync(arrayBuffer);
+                    let kmlFile = null;
+                    zip.forEach(function(path, file) {
+                        if (path.toLowerCase().endsWith('.kml')) kmlFile = file;
+                    });
+                    if (kmlFile) parseKMLAndAddFeatures(await kmlFile.async('text'), vectorLayer, false);
+                } else {
+                    parseKMLAndAddFeatures(new TextDecoder('utf-8').decode(arrayBuffer), vectorLayer, false);
+                }
+            } catch (error) {
+                statusDiv.innerText = `❌ 城址加载失败: ${error.message}`;
+                progressBar.style.display = 'none';
+            }
+        }
+
+        // 加载额外文件
+        async function loadExtraData() {
+            try {
+                const response = await fetch(EXTRA_FILE);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const arrayBuffer = await response.arrayBuffer();
+                const isKMZ = new Uint8Array(arrayBuffer)[0] === 0x50;
 
                 if (isKMZ) {
                     const zip = await JSZip.loadAsync(arrayBuffer);
@@ -367,22 +451,18 @@
                         if (path.toLowerCase().endsWith('.kml')) kmlFile = file;
                     });
                     if (kmlFile) {
-                        statusDiv.innerText = '正在解析 KML...';
-                        parseKMLAndAddFeatures(await kmlFile.async('text'));
+                        parseKMLAndAddFeatures(await kmlFile.async('text'), extraVectorLayer, true);
                     }
                 } else {
-                    statusDiv.innerText = '正在解析 KML...';
-                    const decoder = new TextDecoder('utf-8');
-                    parseKMLAndAddFeatures(decoder.decode(arrayBuffer));
+                    parseKMLAndAddFeatures(new TextDecoder('utf-8').decode(arrayBuffer), extraVectorLayer, true);
                 }
             } catch (error) {
-                statusDiv.innerText = `❌ 加载失败: ${error.message}`;
-                progressBar.style.display = 'none';
+                console.warn(`⚠️ 额外文件加载失败: ${error.message}`);
             }
         }
 
         // ============================================================
-        // 4. 侧边栏与搜索功能
+        // 5. 侧边栏与搜索功能
         // ============================================================
         const sidebar = document.getElementById('sidebar');
         const sidebarToggle = document.getElementById('sidebar-toggle');
@@ -419,7 +499,7 @@
             const localMatches = featureSearchIndex.filter(item => item.searchText.includes(keyword.toLowerCase()));
             const displayLocal = localMatches.slice(0, 30); 
 
-            html += `<div class="result-section-title">城址要素 (${localMatches.length})</div>`;
+            html += `<div class="result-section-title">本地要素 (${localMatches.length})</div>`;
             if (displayLocal.length > 0) {
                 displayLocal.forEach((item, index) => {
                     let snippet = item.desc.replace(/[\n\r]/g, ' ').substring(0, 40) + '...';
@@ -431,7 +511,7 @@
                     `;
                 });
             } else {
-                html += '<div class="no-result" style="padding: 10px;">未找到相关城址</div>';
+                html += '<div class="no-result" style="padding: 10px;">未找到相关要素</div>';
             }
 
             html += `<div class="result-section-title">高德地名</div>`;
@@ -439,21 +519,24 @@
 
             searchResultsDiv.innerHTML = html;
 
+            // 绑定本地结果点击事件
             document.querySelectorAll('.local-result').forEach(el => {
                 el.addEventListener('click', function() {
                     const idx = parseInt(this.getAttribute('data-index'));
                     const item = featureSearchIndex[idx];
                     const geom = item.feature.getGeometry();
                     let coord;
+                    
                     if (geom instanceof ol.geom.Polygon) coord = geom.getInteriorPoint().getCoordinates();
                     else if (geom instanceof ol.geom.LineString) coord = geom.getCoordinateAt(0.5);
-                    else coord = geom.getCoordinates();
+                    else coord = geom.getCoordinates(); // 点类型
 
                     map.getView().animate({ center: coord, zoom: 16, duration: 500 });
                     showPopup(item.name, item.desc, coord);
                 });
             });
 
+            // 高德搜索
             if (AMAP_KEY && AMAP_KEY !== '你的高德Web服务Key') {
                 fetch(`https://restapi.amap.com/v3/place/text?keywords=${encodeURIComponent(keyword)}&key=${AMAP_KEY}&offset=10&page=1`)
                     .then(res => res.json())
@@ -498,7 +581,7 @@
         }
 
         // ============================================================
-        // 5. 弹窗功能
+        // 6. 弹窗功能
         // ============================================================
         const popupElement = document.createElement('div');
         popupElement.className = 'ol-popup';
@@ -531,7 +614,7 @@
             if (isMeasuring) return;
             let featureFound = false;
             map.forEachFeatureAtPixel(event.pixel, function(feature, layer) {
-                if (layer === vectorLayer) {
+                if (layer === vectorLayer || layer === extraVectorLayer) {
                     let name = feature.get('name') || feature.get('Name') || '（无标题）';
                     let description = feature.get('description') || feature.get('Description') || '';
                     showPopup(name, description, event.coordinate);
@@ -543,11 +626,12 @@
         });
 
         // ============================================================
-        // 6. 鼠标悬停高亮逻辑
+        // 7. 鼠标悬停高亮逻辑
         // ============================================================
         let lastHighlightedFeature = null;
         let highlightOverlay = new ol.layer.Vector({
             source: new ol.source.Vector(),
+            // 这里的高亮样式对线条是加粗白线，如果点也有高亮需求可以再加 image
             style: new ol.style.Style({
                 stroke: new ol.style.Stroke({ color: '#ffffff', width: 4, lineJoin: 'round', lineCap: 'round' })
             }),
@@ -563,7 +647,7 @@
             if (event.dragging) return;
 
             const feature = map.forEachFeatureAtPixel(event.pixel, function(feat, layer) {
-                if (layer === vectorLayer) return feat;
+                if (layer === vectorLayer || layer === extraVectorLayer) return feat;
             });
 
             if (feature !== lastHighlightedFeature) {
@@ -572,6 +656,8 @@
                 
                 if (feature) {
                     const highlightFeature = new ol.Feature(feature.getGeometry().clone());
+                    // 如果原要素有点样式，高亮时也尝试继承原图标
+                    if (feature.getStyle()) highlightFeature.setStyle(feature.getStyle());
                     highlightOverlay.getSource().addFeature(highlightFeature);
                     map.getTargetElement().style.cursor = 'pointer';
                 } else {
@@ -581,12 +667,11 @@
         });
 
         // ============================================================
-        // 7. 关灯模式 (恢复 70% 纯黑遮罩)
+        // 8. 关灯模式
         // ============================================================
         const toggleBtn = document.getElementById('light-toggle');
         let darkMode = false;
 
-        // 创建黑色遮罩层
         function createBlackTile() {
             const canvas = document.createElement('canvas');
             canvas.width = 256; canvas.height = 256;
@@ -607,12 +692,11 @@
                     resolutions: [156543.03392804097, 78271.51696402048, 39135.75848201024, 19567.87924100512, 9783.93962050256, 4891.96981025128, 2445.98490512564, 1222.99245256282, 611.49622628141, 305.748113140705, 152.8740565703525, 76.43702828517625, 38.21851414258813, 19.109257071294063, 9.554628535647032, 4.777314267823516, 2.388657133911758, 1.194328566955879, 0.5971642834779395, 0.29858214173896974]
                 })
             }),
-            opacity: 1.0, 
-            visible: false, // 默认隐藏，不干扰白天效果
-            zIndex: 1
+            opacity: 1.0, visible: false, zIndex: 1
         });
         map.addLayer(shadowLayer);
         vectorLayer.setZIndex(2);
+        extraVectorLayer.setZIndex(3);
 
         toggleBtn.addEventListener('click', function() {
             darkMode = !darkMode;
@@ -622,7 +706,7 @@
         });
 
         // ============================================================
-        // 8. 测距与测面积
+        // 9. 测距与测面积
         // ============================================================
         let isMeasuring = false;
         let currentMeasureType = null;
@@ -777,7 +861,8 @@
         });
 
         // 启动加载
-        loadMapData();
+        loadMainData();
+        loadExtraData();
     </script>
 </body>
 </html>
