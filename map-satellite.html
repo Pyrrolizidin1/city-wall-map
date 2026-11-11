@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>城墙城址数据集 · 卫星图</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css" />
+    <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+        }
+        #map { width: 100%; height: 100%; }
+
+        /* ========== 加载进度条 ========== */
+        #progress-bar {
+            position: fixed; bottom: 20px; left: 20px; right: 20px; height: 30px;
+            background: rgba(0,0,0,0.7); border-radius: 15px; z-index: 1000; display: none;
+            overflow: hidden;
+        }
+        #progress-fill {
+            height: 100%; background: #4CAF50; border-radius: 15px; width: 0%;
+            transition: width 0.3s; line-height: 30px; color: white; text-align: center; font-size: 14px;
+            position: relative;
+        }
+        #progress-tip {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 13px; font-weight: 500; pointer-events: none;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            letter-spacing: 1px;
+        }
+        #status {
+            position: fixed; bottom: 60px; left: 20px; background: rgba(0,0,0,0.7); color: white;
+            padding: 8px 15px; border-radius: 20px; font-size: 12px; z-index: 1000; font-family: monospace;
+        }
+
+        /* ========== 顶部右侧控制按钮组 ========== */
+        #top-controls {
+            position: fixed; top: 20px; right: 20px; z-index: 1100; display: flex; gap: 10px;
+        }
+        .ctrl-btn {
+            padding: 10px 18px; background: rgba(30, 30, 30, 0.85); color: #f0f0f0;
+            border: 1px solid #555; border-radius: 30px; font-size: 14px; font-weight: 500;
+            cursor: pointer; box-shadow: 0 2px 12px rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+            transition: all 0.2s ease; letter-spacing: 0.5px;
+        }
+        .ctrl-btn:hover { background: rgba(60, 60, 60, 0.95); border-color: #aaa; transform: scale(1.02); }
+        .ctrl-btn.active { background: rgba(200, 180, 100, 0.9); color: #1a1a1a; border-color: #cbb77a; }
+
+        /* ========== 搜索侧边栏 ========== */
+        #sidebar {
+            position: fixed; top: 20px; left: 20px; bottom: 80px; width: 320px;
+            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
+            border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 1100;
+            display: flex; flex-direction: column; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateX(0);
+        }
+        #sidebar.collapsed { transform: translateX(-360px); }
+
+        #sidebar-toggle {
+            position: absolute; top: 50%; right: -14px; transform: translateY(-50%);
+            width: 28px; height: 48px; background: #ffffff; color: #333;
+            border: 1px solid #ddd; border-radius: 0 8px 8px 0; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.1); z-index: 10; font-weight: bold; font-size: 14px;
+            transition: background 0.2s, color 0.2s;
+        }
+        #sidebar-toggle:hover { background: #f0f0f0; color: #000; }
+        #sidebar.collapsed #sidebar-toggle { right: -28px; border-radius: 8px; }
+
+        .search-box { padding: 15px; border-bottom: 1px solid #eee; }
+        .search-box input {
+            width: 100%; padding: 10px 15px; border: 1px solid #ddd; border-radius: 20px;
+            font-size: 14px; outline: none; box-sizing: border-box; background: #f8f8f8; transition: border-color 0.2s;
+        }
+        .search-box input:focus { border-color: #bbaa92; background: #fff; }
+
+        /* ========== 图层开关 ========== */
+        .layer-toggles {
+            padding: 12px 15px;
+            background: #fafafa;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .layer-toggle-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13.5px;
+            color: #333;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .layer-toggle-item input[type="checkbox"] {
+            accent-color: #3d352a;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .search-results { flex: 1; overflow-y: auto; padding: 10px 0; }
+        .search-results::-webkit-scrollbar { width: 6px; }
+        .search-results::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+
+        .result-section-title {
+            padding: 8px 15px; font-size: 12px; color: #888; font-weight: bold; background: #f9f9f9; position: sticky; top: 0;
+        }
+        .result-item { padding: 12px 15px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s; }
+        .result-item:hover { background: #f0f0f0; }
+        .result-item .title { font-size: 14px; color: #333; font-weight: bold; margin-bottom: 4px; }
+        .result-item .desc { font-size: 12px; color: #777; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .no-result { padding: 15px; font-size: 13px; color: #999; text-align: center; }
+
+        /* ========== 返回首页 ========== */
+        #back-home {
+            position: fixed; bottom: 20px; left: 20px; z-index: 1100; padding: 8px 16px;
+            background: rgba(30, 30, 30, 0.7); color: #f0f0f0; border: 1px solid #555;
+            border-radius: 20px; font-size: 13px; cursor: pointer; backdrop-filter: blur(4px);
+            transition: all 0.2s ease; font-family: 'Noto Serif SC', serif; text-decoration: none;
+        }
+        #back-home:hover { background: rgba(60, 60, 60, 0.9); border-color: #aaa; }
+
+        /* ========== 弹窗 ========== */
+        .ol-popup {
+            position: absolute; background-color: white; box-shadow: 0 3px 15px rgba(0,0,0,0.3);
+            border-radius: 10px; border: 1px solid #ccc; bottom: 12px; left: -50px;
+            min-width: 260px; max-width: 400px; max-height: 400px; z-index: 10; overflow: hidden;
+        }
+        .ol-popup:after, .ol-popup:before {
+            top: 100%; border: solid transparent; content: " "; height: 0; width: 0; position: absolute; pointer-events: none;
+        }
+        .ol-popup:after { border-top-color: white; border-width: 10px; left: 48px; margin-left: -10px; }
+        .ol-popup:before { border-top-color: #ccc; border-width: 11px; left: 48px; margin-left: -11px; }
+        .popup-header { background: #f5f5f5; padding: 10px 15px; border-bottom: 1px solid #ddd; position: relative; }
+        .popup-title { font-weight: bold; font-size: 15px; color: #333; padding-right: 25px; word-break: break-word; }
+        .popup-closer { text-decoration: none; position: absolute; top: 8px; right: 12px; font-size: 20px; font-weight: bold; color: #999; line-height: 1; cursor: pointer; }
+        .popup-content-wrapper { padding: 12px 15px; max-height: 300px; overflow-y: auto; background: white; user-select: text; }
+        .popup-content { font-size: 13px; line-height: 1.6; color: #444; word-wrap: break-word; white-space: normal; }
+
+        /* ========== 测量提示框 ========== */
+        .measure-tooltip {
+            position: relative; background: rgba(0, 0, 0, 0.7); border-radius: 4px; color: white;
+            padding: 4px 8px; opacity: 0.9; white-space: nowrap; font-size: 12px; pointer-events: auto;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .measure-tooltip:before {
+            border-top: 6px solid rgba(0, 0, 0, 0.7); border-right: 6px solid transparent;
+            border-left: 6px solid transparent; content: ""; position: absolute; bottom: -6px; margin-left: -7px; left: 50%;
+        }
+        .measure-delete-btn {
+            background: #ff4d4f; color: white; border-radius: 50%; width: 16px; height: 16px;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            font-weight: bold; font-size: 12px; line-height: 1; transition: background 0.2s;
+        }
+        .measure-delete-btn:hover { background: #ff7875; }
+
+        /* ============================================================
+           移动端专属适配
+           ============================================================ */
+        @media (max-width: 768px) {
+            #top-controls {
+                top: auto; bottom: 20px; left: 10px; right: 10px; justify-content: space-between; gap: 5px;
+            }
+            .ctrl-btn {
+                flex: 1; padding: 12px 0; font-size: 14px; display: flex; justify-content: center; align-items: center;
+            }
+            #sidebar {
+                top: 10px; left: 10px; bottom: 75px; width: calc(100vw - 20px); max-width: none;
+            }
+            #sidebar.collapsed { transform: translateX(-100%); }
+            #sidebar-toggle { width: 32px; height: 54px; right: -24px; font-size: 16px; border-radius: 0 8px 8px 0; }
+            #sidebar.collapsed #sidebar-toggle { right: -44px; border-radius: 8px; box-shadow: 2px 0 12px rgba(0,0,0,0.2); }
+            #back-home { bottom: auto; top: 20px; right: 20px; left: auto; }
+            .ol-popup { min-width: 200px; max-width: 85vw; max-height: 50vh; }
+            .popup-content-wrapper { max-height: 35vh; }
+            .measure-tooltip { font-size: 13px; padding: 6px 10px; }
+            .measure-delete-btn { width: 20px; height: 20px; font-size: 14px; }
+            #progress-bar { bottom: 80px; }
+            #status { bottom: 120px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <!-- ================= 搜索侧边栏 ================= -->
+    <div id="sidebar">
+        <button id="sidebar-toggle" title="折叠/展开">◀</button>
+
+        <div class="search-box">
+            <input type="text" id="search-input" placeholder="搜索本地城址要素...">
+        </div>
+
+        <!-- 图层开关区 -->
+        <div class="layer-toggles">
+            <label class="layer-toggle-item">
+                <input type="checkbox" id="toggle-main-layer" checked> 城址线型数据
+            </label>
+            <label class="layer-toggle-item">
+                <input type="checkbox" id="toggle-extra-layer" checked> 轮廓未定点位
+            </label>
+        </div>
+
+        <div class="search-results" id="search-results">
+            <div class="no-result">输入关键字搜索本地要素</div>
+        </div>
+    </div>
+
+    <!-- 进度条与提示 -->
+    <div id="progress-bar">
+        <div id="progress-fill">0%</div>
+        <div id="progress-tip">初次加载速度可能较慢，请耐心等待</div>
+    </div>
+    <div id="status">准备加载数据...</div>
+
+    <div id="top-controls">
+        <button class="ctrl-btn" id="measure-line-btn">📏 测距</button>
+        <button class="ctrl-btn" id="measure-area-btn">⬛ 测面积</button>
+        <button class="ctrl-btn" id="light-toggle">🌙 关灯</button>
+    </div>
+
+    <a id="back-home" href="index.html">← 返回首页</a>
+
+    <script>
+        // ============================================================
+        // 1. 全局配置与坐标转换
+        // ============================================================
+        const KML_FILE = '城址.kmz';
+        const EXTRA_FILE = '轮廓未定.kmz';
+
+        // 卫星图页面：数据源为 WGS-84，无需 GCJ02 纠偏
+        const NEED_GCJ02 = false;
+
+        ol.proj.useGeographic();
+
+        const a = 6378245.0;
+        const ee = 0.00669342162296594323;
+
+        function transformLat(x, y) {
+            let ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+            ret += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
+            ret += (20.0 * Math.sin(y * Math.PI) + 40.0 * Math.sin(y / 3.0 * Math.PI)) * 2.0 / 3.0;
+            ret += (160.0 * Math.sin(y / 12.0 * Math.PI) + 320 * Math.sin(y * Math.PI / 30.0)) * 2.0 / 3.0;
+            return ret;
+        }
+
+        function transformLon(x, y) {
+            let ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+            ret += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
+            ret += (20.0 * Math.sin(x * Math.PI) + 40.0 * Math.sin(x / 3.0 * Math.PI)) * 2.0 / 3.0;
+            ret += (150.0 * Math.sin(x / 12.0 * Math.PI) + 300.0 * Math.sin(x / 30.0 * Math.PI)) * 2.0 / 3.0;
+            return ret;
+        }
+
+        function wgs84ToGcj02(lon, lat) {
+            if (outOfChina(lon, lat)) return [lon, lat];
+            let dLat = transformLat(lon - 105.0, lat - 35.0);
+            let dLon = transformLon(lon - 105.0, lat - 35.0);
+            let radLat = lat / 180.0 * Math.PI;
+            let magic = Math.sin(radLat);
+            magic = 1 - ee * magic * magic;
+            let sqrtMagic = Math.sqrt(magic);
+            dLat = (dLat * 180.0) / ((a * (1 - ee)) / (magic * sqrtMagic) * Math.PI);
+            dLon = (dLon * 180.0) / (a / sqrtMagic * Math.cos(radLat) * Math.PI);
+            return [lon + dLon, lat + dLat];
+        }
+
+        function outOfChina(lon, lat) {
+            return lon < 72.004 || lon > 137.8347 || lat < 0.8293 || lat > 55.8271;
+        }
+
+        function convertCoordsRecursive(coordArray) {
+            if (!NEED_GCJ02) return coordArray;  // 卫星图页面直接返回，不做任何转换
+            if (Array.isArray(coordArray) && coordArray.length > 0 && typeof coordArray[0] === 'number') {
+                const gcj = wgs84ToGcj02(coordArray[0], coordArray[1]);
+                return coordArray.length === 3 ? [gcj[0], gcj[1], coordArray[2]] : gcj;
+            } else if (Array.isArray(coordArray)) {
+                return coordArray.map(item => convertCoordsRecursive(item));
+            }
+            return coordArray;
+        }
+
+        // 保留 fromLonLat 定义（本页面未使用，兼容其他可能引用）
+        function fromLonLat(lon, lat) {
+            const x = (lon * 20037508.34) / 180;
+            const y = Math.log(Math.tan(((90 + lat) * Math.PI) / 360)) / (Math.PI / 180);
+            return [x, (y * 20037508.34) / 180];
+        }
+
+        // ============================================================
+        // 2. 初始化地图（Esri World Imagery，WGS-84 坐标系）
+        // ============================================================
+        const esriSatLayer = new ol.layer.Tile({
+            source: new ol.source.XYZ({
+                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                attributions: '© Esri, Maxar, Earthstar Geographics',
+                crossOrigin: 'anonymous'
+            })
+        });
+
+        const map = new ol.Map({
+            target: 'map',
+            layers: [esriSatLayer],
+            view: new ol.View({
+                center: [108.94, 34.34],  // 视图是 EPSG:4326，直接用经纬度
+                zoom: 10
+            })
+        });
+
+        const searchMarkerSource = new ol.source.Vector();
+        const searchMarkerLayer = new ol.layer.Vector({
+            source: searchMarkerSource,
+            style: new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 8, fill: new ol.style.Fill({ color: '#e74c3c' }),
+                    stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
+                })
+            }),
+            zIndex: 200
+        });
+        map.addLayer(searchMarkerLayer);
+
+        const statusDiv = document.getElementById('status');
+        const progressBar = document.getElementById('progress-bar');
+        const progressFill = document.getElementById('progress-fill');
+        const progressTip = document.getElementById('progress-tip');
+
+        // ============================================================
+        // 3. 矢量图层 (主图层 & 额外点图层)
+        // ============================================================
+        const vectorLayer = new ol.layer.Vector({ source: new ol.source.Vector() });
+        map.addLayer(vectorLayer);
+        vectorLayer.setZIndex(2);
+
+        // 额外点图层
+        const extraVectorLayer = new ol.layer.Vector({
+            source: new ol.source.Vector(),
+            declutter: false
+        });
+        map.addLayer(extraVectorLayer);
+        extraVectorLayer.setZIndex(3);
+
+        // 绑定图层显隐开关事件
+        document.getElementById('toggle-main-layer').addEventListener('change', function(e) {
+            vectorLayer.setVisible(e.target.checked);
+        });
+        document.getElementById('toggle-extra-layer').addEventListener('change', function(e) {
+            extraVectorLayer.setVisible(e.target.checked);
+        });
+
+        // ============================================================
+        // 4. 解析与加载数据
+        // ============================================================
+        let featureSearchIndex = [];
+
+        function parseKMLAndAddFeatures(kmlContent, targetLayer, isExtra = false) {
+            const format = new ol.format.KML({ extractStyles: true });
+            const features = format.readFeatures(kmlContent, { featureProjection: 'EPSG:4326' });
+
+            if (features.length === 0) return;
+
+            const totalCount = features.length;
+            let addedCount = 0;
+            const batchSize = 2000;
+
+            function addBatch() {
+                const end = Math.min(addedCount + batchSize, totalCount);
+                const batch = features.slice(addedCount, end);
+
+                batch.forEach(function(feature) {
+                    const geom = feature.getGeometry();
+                    if (geom) {
+                        // 卫星图页面 NEED_GCJ02=false，这里直接返回原坐标
+                        geom.setCoordinates(convertCoordsRecursive(geom.getCoordinates()));
+                    }
+
+                    if (isExtra) {
+                        feature.unset('name');
+                        feature.unset('Name');
+                        feature.unset('description');
+                        feature.unset('Description');
+                    } else {
+                        const name = feature.get('name') || feature.get('Name') || '未命名';
+                        const desc = feature.get('description') || feature.get('Description') || '';
+                        const searchText = (name + ' ' + desc).toLowerCase();
+
+                        featureSearchIndex.push({
+                            feature: feature, name: name, desc: desc, searchText: searchText, layer: targetLayer
+                        });
+                    }
+                });
+
+                targetLayer.getSource().addFeatures(batch);
+                addedCount = end;
+
+                if (!isExtra) {
+                    const percent = Math.round(55 + (addedCount / totalCount) * 45);
+                    progressFill.style.width = percent + '%';
+                    progressFill.innerText = percent + '%';
+                    statusDiv.innerText = `已加载城址 ${addedCount} / ${totalCount}`;
+                    if (percent > 50) progressTip.style.display = 'none';
+                }
+
+                if (addedCount < totalCount) {
+                    setTimeout(addBatch, 10);
+                } else {
+                    if (!isExtra) {
+                        statusDiv.innerText = `✅ 城址加载完成！共 ${totalCount} 个要素`;
+                        setTimeout(() => { progressBar.style.display = 'none'; }, 3000);
+                        const extent = vectorLayer.getSource().getExtent();
+                        if (extent && !isNaN(extent[0])) {
+                            map.getView().fit(extent, { padding: [50, 50, 50, 50] });
+                        }
+                    }
+                }
+            }
+            setTimeout(addBatch, 50);
+        }
+
+        async function loadMainData() {
+            try {
+                const response = await fetch(KML_FILE);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                progressBar.style.display = 'block';
+                progressFill.style.width = '5%';
+                progressFill.innerText = '5%';
+                statusDiv.innerText = '正在下载城址数据...';
+
+                const reader = response.body.getReader();
+                const chunks = [];
+                while (true) {
+                    const {done, value} = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                }
+                const arrayBuffer = await new Blob(chunks).arrayBuffer();
+
+                progressFill.style.width = '55%';
+                progressFill.innerText = '55%';
+                statusDiv.innerText = '正在解压...';
+
+                const isKMZ = new Uint8Array(arrayBuffer)[0] === 0x50;
+                if (isKMZ) {
+                    const zip = await JSZip.loadAsync(arrayBuffer);
+                    let kmlFile = null;
+                    zip.forEach(function(path, file) {
+                        if (path.toLowerCase().endsWith('.kml')) kmlFile = file;
+                    });
+                    if (kmlFile) parseKMLAndAddFeatures(await kmlFile.async('text'), vectorLayer, false);
+                } else {
+                    parseKMLAndAddFeatures(new TextDecoder('utf-8').decode(arrayBuffer), vectorLayer, false);
+                }
+            } catch (error) {
+                statusDiv.innerText = `❌ 城址加载失败: ${error.message}`;
+                progressBar.style.display = 'none';
+            }
+        }
+
+        async function loadExtraData() {
+            try {
+                const response = await fetch(EXTRA_FILE);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const arrayBuffer = await response.arrayBuffer();
+                const isKMZ = new Uint8Array(arrayBuffer)[0] === 0x50;
+
+                if (isKMZ) {
+                    const zip = await JSZip.loadAsync(arrayBuffer);
+                    let kmlFile = null;
+                    zip.forEach(function(path, file) {
+                        if (path.toLowerCase().endsWith('.kml')) kmlFile = file;
+                    });
+                    if (kmlFile) {
+                        parseKMLAndAddFeatures(await kmlFile.async('text'), extraVectorLayer, true);
+                    }
+                } else {
+                    parseKMLAndAddFeatures(new TextDecoder('utf-8').decode(arrayBuffer), extraVectorLayer, true);
+                }
+            } catch (error) {
+                console.warn(`⚠️ 额外文件加载失败: ${error.message}`);
+            }
+        }
+
+        // ============================================================
+        // 5. 侧边栏与本地搜索（已移除高德 POI）
+        // ============================================================
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const searchInput = document.getElementById('search-input');
+        const searchResultsDiv = document.getElementById('search-results');
+
+        if (window.innerWidth <= 768) {
+            sidebar.classList.add('collapsed');
+            sidebarToggle.innerHTML = '▶';
+        }
+
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            sidebarToggle.innerHTML = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+        });
+
+        let searchTimer;
+        searchInput.addEventListener('input', function(e) {
+            const keyword = this.value.trim();
+            clearTimeout(searchTimer);
+            if (!keyword) {
+                searchResultsDiv.innerHTML = '<div class="no-result">输入关键字搜索本地要素</div>';
+                searchMarkerSource.clear();
+                return;
+            }
+            searchResultsDiv.innerHTML = '<div class="no-result">搜索中...</div>';
+            searchTimer = setTimeout(() => { performSearch(keyword); }, 300);
+        });
+
+        function performSearch(keyword) {
+            searchMarkerSource.clear();
+            let html = '';
+
+            const localMatches = featureSearchIndex.filter(item => item.searchText.includes(keyword.toLowerCase()));
+            const displayLocal = localMatches.slice(0, 50);
+
+            html += `<div class="result-section-title">本地要素 (${localMatches.length})</div>`;
+            if (displayLocal.length > 0) {
+                displayLocal.forEach((item) => {
+                    let snippet = item.desc.replace(/[\n\r]/g, ' ').substring(0, 40) + '...';
+                    html += `
+                        <div class="result-item local-result" data-index="${featureSearchIndex.indexOf(item)}">
+                            <div class="title">${item.name}</div>
+                            <div class="desc">${snippet}</div>
+                        </div>
+                    `;
+                });
+            } else {
+                html += '<div class="no-result" style="padding: 10px;">未找到相关要素</div>';
+            }
+
+            searchResultsDiv.innerHTML = html;
+
+            document.querySelectorAll('.local-result').forEach(el => {
+                el.addEventListener('click', function() {
+                    const idx = parseInt(this.getAttribute('data-index'));
+                    const item = featureSearchIndex[idx];
+                    const geom = item.feature.getGeometry();
+                    let coord;
+
+                    if (geom instanceof ol.geom.Polygon) coord = geom.getInteriorPoint().getCoordinates();
+                    else if (geom instanceof ol.geom.LineString) coord = geom.getCoordinateAt(0.5);
+                    else coord = geom.getCoordinates();
+
+                    map.getView().animate({ center: coord, zoom: 16, duration: 500 });
+                    showPopup(item.name, item.desc, coord);
+                });
+            });
+        }
+
+        // ============================================================
+        // 6. 弹窗功能
+        // ============================================================
+        const popupElement = document.createElement('div');
+        popupElement.className = 'ol-popup';
+        popupElement.innerHTML = `
+            <div class="popup-header">
+                <div class="popup-title"></div>
+                <span class="popup-closer">×</span>
+            </div>
+            <div class="popup-content-wrapper">
+                <div class="popup-content"></div>
+            </div>
+        `;
+
+        const popup = new ol.Overlay({
+            element: popupElement, positioning: 'bottom-center', offset: [0, -10], stopEvent: true
+        });
+        map.addOverlay(popup);
+
+        popupElement.querySelector('.popup-closer').addEventListener('click', function() {
+            popup.setPosition(undefined);
+        });
+
+        function showPopup(title, content, coord) {
+            popupElement.querySelector('.popup-title').textContent = title;
+            popupElement.querySelector('.popup-content').innerHTML = content.replace(/\n/g, '<br>') || '（无描述信息）';
+            popup.setPosition(coord);
+        }
+
+        map.on('click', function(event) {
+            if (isMeasuring) return;
+            let featureFound = false;
+            map.forEachFeatureAtPixel(event.pixel, function(feature, layer) {
+                if (layer === vectorLayer || layer === extraVectorLayer) {
+                    let name = feature.get('name') || feature.get('Name') || '（无标题）';
+                    let description = feature.get('description') || feature.get('Description') || '';
+                    showPopup(name, description, event.coordinate);
+                    featureFound = true;
+                    return true;
+                }
+            });
+            if (!featureFound) popup.setPosition(undefined);
+        });
+
+        // ============================================================
+        // 7. 鼠标悬停高亮逻辑
+        // ============================================================
+        let lastHighlightedFeature = null;
+        let highlightOverlay = new ol.layer.Vector({
+            source: new ol.source.Vector(),
+            style: new ol.style.Style({
+                stroke: new ol.style.Stroke({ color: '#ffffff', width: 4, lineJoin: 'round', lineCap: 'round' }),
+                image: new ol.style.Circle({
+                    radius: 10,
+                    fill: new ol.style.Fill({ color: 'rgba(255, 255, 255, 0.4)' }),
+                    stroke: new ol.style.Stroke({ color: '#ffffff', width: 3 })
+                })
+            }),
+            zIndex: 50
+        });
+        map.addLayer(highlightOverlay);
+
+        map.on('pointermove', function(event) {
+            if (isMeasuring) {
+                map.getTargetElement().style.cursor = 'crosshair';
+                return;
+            }
+            if (event.dragging) return;
+
+            const feature = map.forEachFeatureAtPixel(event.pixel, function(feat, layer) {
+                if (layer === vectorLayer || layer === extraVectorLayer) return feat;
+            });
+
+            if (feature !== lastHighlightedFeature) {
+                highlightOverlay.getSource().clear();
+                lastHighlightedFeature = feature;
+
+                if (feature) {
+                    const geom = feature.getGeometry();
+                    const highlightFeature = new ol.Feature(geom.clone());
+
+                    if (geom.getType() === 'Point') {
+                        let origStyle = feature.getStyle();
+                        if (typeof origStyle === 'function') origStyle = origStyle(feature);
+                        if (origStyle) {
+                            const img = origStyle.getImage();
+                            if (img) {
+                                const clonedImg = img.clone();
+                                highlightFeature.setStyle(new ol.style.Style({ image: clonedImg }));
+                            } else {
+                                highlightFeature.setStyle(new ol.style.Style({
+                                    image: new ol.style.Circle({
+                                        radius: 6, fill: new ol.style.Fill({ color: '#fff' })
+                                    })
+                                }));
+                            }
+                        }
+                    }
+
+                    highlightOverlay.getSource().addFeature(highlightFeature);
+                    map.getTargetElement().style.cursor = 'pointer';
+                } else {
+                    map.getTargetElement().style.cursor = '';
+                }
+            }
+        });
+
+        // ============================================================
+        // 8. 关灯模式
+        // ============================================================
+        const toggleBtn = document.getElementById('light-toggle');
+        let darkMode = false;
+
+        function createBlackTile() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(0, 0, 256, 256);
+            return canvas;
+        }
+
+        const blackTileDataUrl = createBlackTile().toDataURL('image/png');
+        const shadowLayer = new ol.layer.Tile({
+            source: new ol.source.TileImage({
+                tileUrlFunction: function() { return blackTileDataUrl; },
+                projection: 'EPSG:3857',
+                tileGrid: new ol.tilegrid.TileGrid({
+                    extent: [-20037508.34, -20037508.34, 20037508.34, 20037508.34],
+                    origin: [-20037508.34, 20037508.34],
+                    resolutions: [156543.03392804097, 78271.51696402048, 39135.75848201024, 19567.87924100512, 9783.93962050256, 4891.96981025128, 2445.98490512564, 1222.99245256282, 611.49622628141, 305.748113140705, 152.8740565703525, 76.43702828517625, 38.21851414258813, 19.109257071294063, 9.554628535647032, 4.777314267823516, 2.388657133911758, 1.194328566955879, 0.5971642834779395, 0.29858214173896974]
+                })
+            }),
+            opacity: 1.0, visible: false, zIndex: 1
+        });
+        map.addLayer(shadowLayer);
+        vectorLayer.setZIndex(2);
+        extraVectorLayer.setZIndex(3);
+
+        toggleBtn.addEventListener('click', function() {
+            darkMode = !darkMode;
+            shadowLayer.setVisible(darkMode);
+            toggleBtn.innerHTML = darkMode ? '☀️ 开灯' : '🌙 关灯';
+            toggleBtn.classList.toggle('active', darkMode);
+        });
+
+        // ============================================================
+        // 9. 测距与测面积
+        // ============================================================
+        let isMeasuring = false;
+        let currentMeasureType = null;
+        let drawInteraction = null;
+
+        const measureSource = new ol.source.Vector();
+        const measureVector = new ol.layer.Vector({
+            source: measureSource,
+            style: new ol.style.Style({
+                fill: new ol.style.Fill({ color: 'rgba(255, 204, 51, 0.3)' }),
+                stroke: new ol.style.Stroke({ color: 'rgba(255, 204, 51, 1)', width: 2 }),
+                image: new ol.style.Circle({ radius: 7, fill: new ol.style.Fill({ color: 'rgba(255, 204, 51, 1)' }) })
+            }),
+            zIndex: 100
+        });
+        map.addLayer(measureVector);
+
+        let activeTooltipElement = document.createElement('div');
+        activeTooltipElement.className = 'measure-tooltip';
+        let activeTooltip = new ol.Overlay({
+            element: activeTooltipElement, offset: [0, -15], positioning: 'bottom-center', stopEvent: false
+        });
+        map.addOverlay(activeTooltip);
+
+        function formatLength(line) {
+            const length = ol.sphere.getLength(line, {projection: 'EPSG:4326'});
+            if (length > 1000) return (Math.round(length / 1000 * 100) / 100) + ' 公里';
+            return (Math.round(length * 100) / 100) + ' 米';
+        }
+
+        function formatArea(polygon) {
+            const area = ol.sphere.getArea(polygon, {projection: 'EPSG:4326'});
+            if (area > 1000000) return (Math.round(area / 1000000 * 100) / 100) + ' 平方公里';
+            return (Math.round(area * 100) / 100) + ' 平方米';
+        }
+
+        function clearAllMeasures() {
+            measureSource.getFeatures().forEach(function(feature) {
+                const tooltip = feature.get('tooltip');
+                if (tooltip) map.removeOverlay(tooltip);
+            });
+            measureSource.clear();
+            activeTooltip.setPosition(undefined);
+        }
+
+        let deleteTimeout;
+        document.body.addEventListener('click', function(e) {
+            if (e.target && e.target.classList.contains('measure-delete-btn')) {
+                clearTimeout(deleteTimeout);
+                deleteTimeout = setTimeout(() => {
+                    const featureId = e.target.getAttribute('data-id');
+                    const feature = measureSource.getFeatureById(featureId);
+                    if (feature) {
+                        const tooltip = feature.get('tooltip');
+                        if (tooltip) map.removeOverlay(tooltip);
+                        measureSource.removeFeature(feature);
+                    }
+                }, 100);
+            }
+        });
+
+        function addMeasureInteraction(type) {
+            if (drawInteraction) map.removeInteraction(drawInteraction);
+            clearAllMeasures();
+
+            currentMeasureType = type;
+            isMeasuring = true;
+            map.getTargetElement().style.cursor = 'crosshair';
+
+            drawInteraction = new ol.interaction.Draw({
+                source: measureSource,
+                type: type === 'line' ? 'LineString' : 'Polygon',
+                style: new ol.style.Style({
+                    fill: new ol.style.Fill({ color: 'rgba(255, 204, 51, 0.2)' }),
+                    stroke: new ol.style.Stroke({ color: 'rgba(255, 204, 51, 0.8)', width: 2, lineDash: [10, 10] }),
+                    image: new ol.style.Circle({
+                        radius: 5, stroke: new ol.style.Stroke({ color: 'rgba(255, 204, 51, 0.8)', width: 2 }),
+                        fill: new ol.style.Fill({ color: 'rgba(255, 255, 255, 0.5)' })
+                    })
+                })
+            });
+            map.addInteraction(drawInteraction);
+
+            drawInteraction.on('drawstart', function(evt) {
+                let sketch = evt.feature;
+                let tooltipCoord = evt.coordinate;
+
+                sketch.getGeometry().on('change', function(evt) {
+                    let geom = evt.target;
+                    let output;
+                    if (geom instanceof ol.geom.Polygon) {
+                        output = formatArea(geom);
+                        tooltipCoord = geom.getInteriorPoint().getCoordinates();
+                    } else if (geom instanceof ol.geom.LineString) {
+                        output = formatLength(geom);
+                        tooltipCoord = geom.getLastCoordinate();
+                    }
+                    activeTooltipElement.innerHTML = output;
+                    activeTooltip.setPosition(tooltipCoord);
+                });
+            });
+
+            drawInteraction.on('drawend', function(evt) {
+                const feature = evt.feature;
+                const featureId = 'measure_' + Date.now();
+                feature.setId(featureId);
+
+                let tooltipEl = document.createElement('div');
+                tooltipEl.className = 'measure-tooltip';
+                const currentText = activeTooltipElement.innerHTML;
+                tooltipEl.innerHTML = `<span>${currentText}</span><span class="measure-delete-btn" data-id="${featureId}">×</span>`;
+
+                let staticTooltip = new ol.Overlay({
+                    element: tooltipEl, offset: [0, -15], positioning: 'bottom-center', stopEvent: true
+                });
+                map.addOverlay(staticTooltip);
+
+                const geom = feature.getGeometry();
+                let coord = geom instanceof ol.geom.Polygon ? geom.getInteriorPoint().getCoordinates() : geom.getLastCoordinate();
+                staticTooltip.setPosition(coord);
+
+                feature.set('tooltip', staticTooltip);
+                activeTooltip.setPosition(undefined);
+            });
+        }
+
+        const btnLine = document.getElementById('measure-line-btn');
+        const btnArea = document.getElementById('measure-area-btn');
+
+        function resetButtons() {
+            btnLine.classList.remove('active');
+            btnArea.classList.remove('active');
+        }
+
+        function stopMeasuring() {
+            if (drawInteraction) map.removeInteraction(drawInteraction);
+            isMeasuring = false;
+            currentMeasureType = null;
+            resetButtons();
+            map.getTargetElement().style.cursor = '';
+            clearAllMeasures();
+        }
+
+        btnLine.addEventListener('click', function() {
+            if (currentMeasureType === 'line') { stopMeasuring(); return; }
+            resetButtons(); this.classList.add('active'); addMeasureInteraction('line');
+        });
+
+        btnArea.addEventListener('click', function() {
+            if (currentMeasureType === 'area') { stopMeasuring(); return; }
+            resetButtons(); this.classList.add('active'); addMeasureInteraction('area');
+        });
+
+        // 启动加载
+        loadMainData();
+        loadExtraData();
+    </script>
+</body>
+</html>
