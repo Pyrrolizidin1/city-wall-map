@@ -295,21 +295,20 @@
                         statusDiv.innerText = `✅ 城址加载完成！共 ${totalCount} 个要素`;
                         setTimeout(() => { progressBar.style.display = 'none'; }, 3000);
                         
-                        // 提示框在5秒后自动消失
                         setTimeout(() => { 
                             statusDiv.style.opacity = '0'; 
                             setTimeout(() => { statusDiv.style.display = 'none'; }, 500);
                         }, 5000);
 
-                        const extent = vectorLayer.getSource().getExtent();
-                        if (extent && !isNaN(extent[0])) map.getView().fit(extent, { padding: [50, 50, 50, 50] });
+                        // 改动 1：加载完成后，初始视图放在中国范围
+                        const chinaExtent = [73.0, 3.0, 135.0, 54.0];
+                        map.getView().fit(chinaExtent, { padding: [20, 20, 20, 20], duration: 1000 });
                     }
                 }
             }
             setTimeout(addBatch, 50);
         }
 
-        // 模拟慢速加载动画，防止用户以为卡死
         let fakeProgressInterval;
         function startFakeProgress() {
             let currentPercent = 5;
@@ -394,6 +393,7 @@
             }
         }
 
+        // 改动 2 & 3：面积阈值改为10万，并增加中心点坐标
         function getFeatureMetrics(geometry) {
             if (!geometry) return '';
             function formatLength(geom) {
@@ -402,11 +402,14 @@
             }
             function formatArea(geom) {
                 const area = ol.sphere.getArea(geom, {projection: 'EPSG:4326'});
-                return area > 1000000 ? (area / 1000000).toFixed(2) + ' 平方公里' : area.toFixed(2) + ' 平方米';
+                return area > 100000 ? (area / 1000000).toFixed(2) + ' 平方公里' : area.toFixed(2) + ' 平方米';
             }
             let result = '';
+            let centerCoord = null;
+
             if (geometry instanceof ol.geom.Polygon) {
                 result = `周长：${formatLength(geometry.getLinearRing(0))} &nbsp;|&nbsp; 面积：${formatArea(geometry)}`;
+                centerCoord = geometry.getInteriorPoint().getCoordinates();
             } else if (geometry instanceof ol.geom.LineString) {
                 const coords = geometry.getCoordinates();
                 const first = coords[0];
@@ -418,9 +421,16 @@
                 } else {
                     result = `长度：${formatLength(geometry)}`;
                 }
+                centerCoord = geometry.getCoordinateAt(0.5);
             }
+
             if (result) {
-                return `<div style="font-size:12px; color:#666; margin-bottom:8px; padding-bottom:6px; border-bottom:1px dashed #eee;">${result}</div>`;
+                let coordText = '';
+                if (centerCoord) {
+                    const wgsCoord = gcj02ToWgs84(centerCoord[0], centerCoord[1]);
+                    coordText = `<br>中心点：${wgsCoord[0].toFixed(5)}, ${wgsCoord[1].toFixed(5)}`;
+                }
+                return `<div style="font-size:12px; color:#666; margin-bottom:8px; padding-bottom:6px; border-bottom:1px dashed #eee;">${result}${coordText}</div>`;
             }
             return '';
         }
@@ -758,13 +768,14 @@
         let activeTooltip = new ol.Overlay({ element: activeTooltipElement, offset: [0, -15], positioning: 'bottom-center', stopEvent: false });
         map.addOverlay(activeTooltip);
 
+        // 测距面积阈值同步改为10万
         function formatLength(line) {
             const length = ol.sphere.getLength(line, {projection: 'EPSG:4326'});
             return length > 1000 ? (Math.round(length / 1000 * 100) / 100) + ' 公里' : (Math.round(length * 100) / 100) + ' 米';
         }
         function formatArea(polygon) {
             const area = ol.sphere.getArea(polygon, {projection: 'EPSG:4326'});
-            return area > 1000000 ? (Math.round(area / 1000000 * 100) / 100) + ' 平方公里' : (Math.round(area * 100) / 100) + ' 平方米';
+            return area > 100000 ? (Math.round(area / 1000000 * 100) / 100) + ' 平方公里' : (Math.round(area * 100) / 100) + ' 平方米';
         }
         function clearAllMeasures() {
             measureSource.getFeatures().forEach(function(feature) {
@@ -856,12 +867,8 @@
             resetButtons(); this.classList.add('active'); addMeasureInteraction('area');
         });
 
-        // ============================================================
-        // 持续定位与追踪功能 (重写版)
-        // ============================================================
+        // 持续定位与追踪功能
         const locateBtn = document.getElementById('locate-btn');
-        
-        // 1. 定位蓝点图层
         const locationSource = new ol.source.Vector();
         const locationLayer = new ol.layer.Vector({
             source: locationSource,
@@ -875,7 +882,6 @@
         });
         map.addLayer(locationLayer);
 
-        // 2. 精度圈图层 (单独一层保证不遮挡点)
         const accuracySource = new ol.source.Vector();
         const accuracyLayer = new ol.layer.Vector({
             source: accuracySource,
@@ -887,13 +893,9 @@
         });
         map.addLayer(accuracyLayer);
 
-        // 3. Geolocation 配置，彻底修复坐标系
         const geolocation = new ol.Geolocation({
-            projection: 'EPSG:4326', // 强制使用 WGS84，防止底层转换
-            trackingOptions: { 
-                enableHighAccuracy: true,
-                timeout: 15000
-            }
+            projection: 'EPSG:4326',
+            trackingOptions: { enableHighAccuracy: true, timeout: 15000 }
         });
 
         let isTrackingLocation = false;
@@ -922,27 +924,24 @@
                 locateBtn.innerHTML = '<span class="locate-icon"></span> 停止';
                 locateBtn.classList.add('active');
 
-                // 关键修复：根据底图类型，进行准确的坐标转换
                 let finalPos = pos;
                 if (typeof NEED_GCJ02 !== 'undefined' && NEED_GCJ02) {
-                    finalPos = wgs84ToGcj02(pos[0], pos[1]); // 高德底图转换
+                    finalPos = wgs84ToGcj02(pos[0], pos[1]);
+                } else {
+                    finalPos = wgs84ToGcj02(pos[0], pos[1]); // 高德页必然要转
                 }
 
-                // 更新蓝点
                 locationSource.clear();
                 locationSource.addFeature(new ol.Feature({ geometry: new ol.geom.Point(finalPos) }));
 
-                // 更新精度圈
                 const accuracy = geolocation.getAccuracy();
                 accuracySource.clear();
                 if (accuracy) {
-                    // 将精度（米）转换为度数（约），用于绘制圆形
                     const radiusInDegrees = accuracy / 111320; 
                     const circle = new ol.geom.Circle(finalPos, radiusInDegrees);
                     accuracySource.addFeature(new ol.Feature(circle));
                 }
 
-                // 首次定位才平移视野
                 if (firstFix) {
                     map.getView().animate({ center: finalPos, zoom: 17, duration: 800 });
                     firstFix = false;
@@ -951,10 +950,8 @@
                 }
             });
 
-            // 错误处理逻辑：增加延时，防止系统弹窗未出就报错
             geolocation.on('error', function(error) {
                 console.warn('定位失败:', error.message);
-                // 只有在真的无法定位时才报错，且不立即处理
                 setTimeout(() => {
                     if (geolocation.getTracking() && !geolocation.getPosition()) {
                         locateBtn.innerHTML = '<span class="locate-icon"></span> 定位';
@@ -965,7 +962,7 @@
                             alert('无法获取位置。请确保已开启手机 GPS，并允许浏览器获取您的位置。');
                         }
                     }
-                }, 2000); // 2秒延迟
+                }, 2000);
             });
         });
 
