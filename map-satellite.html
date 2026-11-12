@@ -96,6 +96,7 @@
         <button class="ctrl-btn" id="measure-line-btn">📏 测距</button>
         <button class="ctrl-btn" id="measure-area-btn">⬛ 测面积</button>
         <button class="ctrl-btn" id="light-toggle">🌙 关灯</button>
+        <button class="ctrl-btn" id="locate-btn">📍 定位</button>
     </div>
 
     <a id="back-home" href="index.html">← 返回首页</a>
@@ -148,10 +149,8 @@
             }
             return coordArray;
         }
-        
-        // 卫星图无需纠偏，但为了保持兼容，同样定义此函数
         function revertCoordsRecursive(coordArray) {
-            return coordArray;
+            return coordArray; // 卫星图直接返回
         }
 
         function fromLonLat(lon, lat) {
@@ -172,6 +171,13 @@
             target: 'map',
             layers: [esriSatLayer],
             view: new ol.View({ center: [108.94, 34.34], zoom: 10 })
+        });
+
+        // 禁用移动端双指旋转
+        map.getInteractions().forEach(function(interaction) {
+            if (interaction instanceof ol.interaction.DragRotateAndZoom) {
+                interaction.setActive(false);
+            }
         });
 
         const searchMarkerSource = new ol.source.Vector();
@@ -328,15 +334,14 @@
             }
         }
 
-        // 计算几何体长度面积
         function getFeatureMetrics(geometry) {
             if (!geometry) return '';
             function formatLength(geom) {
-                const length = ol.sphere.getLength(geom);
+                const length = ol.sphere.getLength(geom, {projection: 'EPSG:4326'});
                 return length > 1000 ? (length / 1000).toFixed(2) + ' 公里' : length.toFixed(2) + ' 米';
             }
             function formatArea(geom) {
-                const area = ol.sphere.getArea(geom);
+                const area = ol.sphere.getArea(geom, {projection: 'EPSG:4326'});
                 return area > 1000000 ? (area / 1000000).toFixed(2) + ' 平方公里' : area.toFixed(2) + ' 平方米';
             }
             let result = '';
@@ -360,7 +365,6 @@
             return '';
         }
 
-        // 导出 KML (卫星图无需反向纠偏)
         function downloadKML(feature) {
             const geom = feature.getGeometry();
             let coords = geom.getCoordinates();
@@ -379,19 +383,12 @@
     <Placemark>
       <name>测量${isLine ? '路径' : '面积'}</name>
       <Style>
-        <LineStyle>
-          <color>ff00ffff</color>
-          <width>2</width>
-        </LineStyle>
-        <PolyStyle>
-          <color>4d00ffff</color>
-        </PolyStyle>
+        <LineStyle><color>ff00ffff</color><width>2</width></LineStyle>
+        <PolyStyle><color>4d00ffff</color></PolyStyle>
       </Style>
       ${isLine ? '<LineString>' : '<Polygon><outerBoundaryIs><LinearRing>'}
       <tessellate>1</tessellate>
-      <coordinates>
-        ${coordString}
-      </coordinates>
+      <coordinates>${coordString}</coordinates>
       ${isLine ? '</LineString>' : '</LinearRing></outerBoundaryIs></Polygon>'}
     </Placemark>
   </Document>
@@ -408,14 +405,10 @@
             URL.revokeObjectURL(url);
         }
 
-        // 终极坐标解析引擎
         function parseCoordinates(str) {
-            let isSouth = /[Ss南]/.test(str);
-            let isWest = /[Ww西]/.test(str);
-            let hasSouth = /[Ss南]/.test(str);
-            let hasWest = /[Ww西]/.test(str);
-            let hasNorth = /[Nn北]/.test(str);
-            let hasEast = /[Ee东]/.test(str);
+            let isSouth = /[Ss南]/.test(str); let isWest = /[Ww西]/.test(str);
+            let hasSouth = /[Ss南]/.test(str); let hasWest = /[Ww西]/.test(str);
+            let hasNorth = /[Nn北]/.test(str); let hasEast = /[Ee东]/.test(str);
             let s = str.replace(/[东经北纬西经南纬]/g, ' ').replace(/[gG](?=\d)/g, '').replace(/[°度]/g, ' ').replace(/['′分]/g, ' ').replace(/["″秒]/g, ' ').replace(/[NSEWnsew]/g, ' ').replace(/[，,]/g, ' ').replace(/\s+/g, ' ').trim();
             let parts = s.split(' ').filter(Boolean).map(Number);
             let lon = null, lat = null;
@@ -515,7 +508,7 @@
                 el.addEventListener('click', function() {
                     const lon = parseFloat(this.getAttribute('data-lon'));
                     const lat = parseFloat(this.getAttribute('data-lat'));
-                    const coord = [lon, lat]; // 卫星图直接使用 WGS84
+                    const coord = [lon, lat];
                     searchMarkerSource.addFeature(new ol.Feature({ geometry: new ol.geom.Point(coord) }));
                     map.getView().animate({ center: coord, zoom: 16, duration: 800 });
                     showPopup('坐标定位', `经度: ${lon}<br>纬度: ${lat}`, coord, null);
@@ -565,7 +558,6 @@
             popup.setPosition(coord);
         }
 
-        // 修复的点击事件
         map.on('click', function(event) {
             if (isMeasuring) return;
             let featureFound = false;
@@ -783,7 +775,6 @@
                 tooltipEl.className = 'measure-tooltip';
                 const currentText = activeTooltipElement.innerHTML;
                 
-                // 加入下载按钮
                 tooltipEl.innerHTML = `
                     <div style="display:flex; flex-direction:column; gap:6px;">
                         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
@@ -829,6 +820,74 @@
         btnArea.addEventListener('click', function() {
             if (currentMeasureType === 'area') { stopMeasuring(); return; }
             resetButtons(); this.classList.add('active'); addMeasureInteraction('area');
+        });
+
+        // ============================================================
+        // 持续定位与追踪功能
+        // ============================================================
+        const locateBtn = document.getElementById('locate-btn');
+        
+        const locationSource = new ol.source.Vector();
+        const locationLayer = new ol.layer.Vector({
+            source: locationSource,
+            style: new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 8, fill: new ol.style.Fill({ color: '#1890ff' }),
+                    stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
+                })
+            }),
+            zIndex: 999
+        });
+        map.addLayer(locationLayer);
+
+        const geolocation = new ol.Geolocation({
+            projection: map.getView().getProjection(),
+            trackingOptions: { enableHighAccuracy: true }
+        });
+
+        let isTrackingLocation = false;
+
+        locateBtn.addEventListener('click', function() {
+            if (isTrackingLocation) {
+                geolocation.setTracking(false);
+                locationSource.clear();
+                isTrackingLocation = false;
+                this.classList.remove('active');
+                this.innerHTML = '📍 定位';
+                return;
+            }
+
+            geolocation.setTracking(true);
+            this.innerHTML = '⌛ 定位中...';
+            
+            geolocation.on('change:position', function() {
+                const pos = geolocation.getPosition();
+                if (!pos) return;
+
+                isTrackingLocation = true;
+                locateBtn.innerHTML = '🛑 停止定位';
+                locateBtn.classList.add('active');
+
+                let finalPos = pos;
+                // 卫星图不需要转换，但为了兼容代码结构保留 if 判断
+                if (typeof NEED_GCJ02 !== 'undefined' && NEED_GCJ02) {
+                    finalPos = wgs84ToGcj02(pos[0], pos[1]);
+                }
+
+                locationSource.clear();
+                locationSource.addFeature(new ol.Feature({ geometry: new ol.geom.Point(finalPos) }));
+
+                map.getView().animate({ center: finalPos, zoom: 16, duration: 500 });
+            });
+
+            geolocation.on('error', function(error) {
+                console.warn('定位失败:', error.message);
+                locateBtn.innerHTML = '📍 定位';
+                locateBtn.classList.remove('active');
+                isTrackingLocation = false;
+                geolocation.setTracking(false);
+                if (error.code === 1) alert('您拒绝了定位权限，网站其他功能可以正常使用。如需定位，请在浏览器设置中允许。');
+            });
         });
 
         loadMainData();
