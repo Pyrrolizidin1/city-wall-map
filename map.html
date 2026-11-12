@@ -132,6 +132,20 @@
             dLon = (dLon * 180.0) / (a / sqrtMagic * Math.cos(radLat) * Math.PI);
             return [lon + dLon, lat + dLat];
         }
+        
+        // 新增：GCJ02 转回 WGS84，用于导出 KML
+        function gcj02ToWgs84(lon, lat) {
+            if (outOfChina(lon, lat)) return [lon, lat];
+            let dLat = transformLat(lon - 105.0, lat - 35.0);
+            let dLon = transformLon(lon - 105.0, lat - 35.0);
+            let radLat = lat / 180.0 * Math.PI;
+            let magic = Math.sin(radLat);
+            magic = 1 - ee * magic * magic;
+            let sqrtMagic = Math.sqrt(magic);
+            dLat = (dLat * 180.0) / ((a * (1 - ee)) / (magic * sqrtMagic) * Math.PI);
+            dLon = (dLon * 180.0) / (a / sqrtMagic * Math.cos(radLat) * Math.PI);
+            return [lon * 2 - (lon + dLon), lat * 2 - (lat + dLat)];
+        }
         function outOfChina(lon, lat) {
             return lon < 72.004 || lon > 137.8347 || lat < 0.8293 || lat > 55.8271;
         }
@@ -144,6 +158,17 @@
             }
             return coordArray;
         }
+        // 新增：递归反向转换
+        function revertCoordsRecursive(coordArray) {
+            if (Array.isArray(coordArray) && coordArray.length > 0 && typeof coordArray[0] === 'number') {
+                const wgs = gcj02ToWgs84(coordArray[0], coordArray[1]);
+                return coordArray.length === 3 ? [wgs[0], wgs[1], coordArray[2]] : wgs;
+            } else if (Array.isArray(coordArray)) {
+                return coordArray.map(item => revertCoordsRecursive(item));
+            }
+            return coordArray;
+        }
+        
         function fromLonLat(lon, lat) {
             const x = (lon * 20037508.34) / 180;
             const y = Math.log(Math.tan(((90 + lat) * Math.PI) / 360)) / (Math.PI / 180);
@@ -319,84 +344,125 @@
             }
         }
 
+        // 计算几何体长度面积
+        function getFeatureMetrics(geometry) {
+            if (!geometry) return '';
+            function formatLength(geom) {
+                const length = ol.sphere.getLength(geom);
+                return length > 1000 ? (length / 1000).toFixed(2) + ' 公里' : length.toFixed(2) + ' 米';
+            }
+            function formatArea(geom) {
+                const area = ol.sphere.getArea(geom);
+                return area > 1000000 ? (area / 1000000).toFixed(2) + ' 平方公里' : area.toFixed(2) + ' 平方米';
+            }
+            let result = '';
+            if (geometry instanceof ol.geom.Polygon) {
+                result = `周长：${formatLength(geometry.getLinearRing(0))} &nbsp;|&nbsp; 面积：${formatArea(geometry)}`;
+            } else if (geometry instanceof ol.geom.LineString) {
+                const coords = geometry.getCoordinates();
+                const first = coords[0];
+                const last = coords[coords.length - 1];
+                const isClosed = Math.abs(first[0] - last[0]) < 1e-6 && Math.abs(first[1] - last[1]) < 1e-6;
+                if (isClosed) {
+                    const polyGeom = new ol.geom.Polygon([coords]);
+                    result = `周长：${formatLength(geometry)} &nbsp;|&nbsp; 面积：${formatArea(polyGeom)}`;
+                } else {
+                    result = `长度：${formatLength(geometry)}`;
+                }
+            }
+            if (result) {
+                return `<div style="font-size:12px; color:#666; margin-bottom:8px; padding-bottom:6px; border-bottom:1px dashed #eee;">${result}</div>`;
+            }
+            return '';
+        }
+
+        // 导出 KML
+        function downloadKML(feature) {
+            const geom = feature.getGeometry();
+            let coords = geom.getCoordinates();
+            let isLine = geom instanceof ol.geom.LineString;
+            
+            // 高德地图页：转换为 WGS-84
+            coords = revertCoordsRecursive(coords);
+
+            let coordString = '';
+            if (isLine) {
+                coordString = coords.map(c => `${c[0]},${c[1]},0`).join(' ');
+            } else {
+                coordString = coords[0].map(c => `${c[0]},${c[1]},0`).join(' ');
+            }
+
+            const kmlString = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <Placemark>
+      <name>测量${isLine ? '路径' : '面积'}</name>
+      <Style>
+        <LineStyle>
+          <color>ff00ffff</color>
+          <width>2</width>
+        </LineStyle>
+        <PolyStyle>
+          <color>4d00ffff</color>
+        </PolyStyle>
+      </Style>
+      ${isLine ? '<LineString>' : '<Polygon><outerBoundaryIs><LinearRing>'}
+      <tessellate>1</tessellate>
+      <coordinates>
+        ${coordString}
+      </coordinates>
+      ${isLine ? '</LineString>' : '</LinearRing></outerBoundaryIs></Polygon>'}
+    </Placemark>
+  </Document>
+</kml>`;
+
+            const blob = new Blob([kmlString], { type: 'application/vnd.google-earth.kml+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `测量_${Date.now()}.kml`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
         // 终极坐标解析引擎
         function parseCoordinates(str) {
-            // 1. 剔除方向字母，提取方向信息
             let isSouth = /[Ss南]/.test(str);
             let isWest = /[Ww西]/.test(str);
             let hasSouth = /[Ss南]/.test(str);
             let hasWest = /[Ww西]/.test(str);
             let hasNorth = /[Nn北]/.test(str);
             let hasEast = /[Ee东]/.test(str);
-
-            // 2. 清理文本：把中文、全角符号、方向词、度分秒符号全部换成空格或逗号
-            let s = str
-                .replace(/[东经北纬西经南纬]/g, ' ')
-                .replace(/[gG](?=\d)/g, '') // 去除奥维的 g 前缀
-                .replace(/[°度]/g, ' ')
-                .replace(/['′分]/g, ' ')
-                .replace(/["″秒]/g, ' ')
-                .replace(/[NSEWnsew]/g, ' ')
-                .replace(/[，,]/g, ' ')
-                .replace(/\s+/g, ' ')
-                .trim();
-
+            let s = str.replace(/[东经北纬西经南纬]/g, ' ').replace(/[gG](?=\d)/g, '').replace(/[°度]/g, ' ').replace(/['′分]/g, ' ').replace(/["″秒]/g, ' ').replace(/[NSEWnsew]/g, ' ').replace(/[，,]/g, ' ').replace(/\s+/g, ' ').trim();
             let parts = s.split(' ').filter(Boolean).map(Number);
             let lon = null, lat = null;
+            if (parts.some(isNaN)) return null;
 
-            if (parts.some(isNaN)) return null; // 如果混入了非数字，直接退出
-
-            // 3. 组合数值并判断经纬度顺序
             if (parts.length === 2) {
-                // 格式：十进制度 "111.22 36.54"
-                // 判断是否有明确的方向指示
                 if (hasNorth || hasSouth) {
-                    // 明确说明纬度位置，所以第一个数可能是纬度也可能是经度
-                    // 但如果其中一个数大于90，那它必然是经度
-                    if (Math.abs(parts[0]) > 90) {
-                        lon = parts[0]; lat = parts[1];
-                    } else {
-                        lat = parts[0]; lon = parts[1]; // 按照你给的错误示例，有 N 时，数字在前的应该是纬度
-                    }
+                    if (Math.abs(parts[0]) > 90) { lon = parts[0]; lat = parts[1]; }
+                    else { lat = parts[0]; lon = parts[1]; }
                 } else if (hasEast || hasWest) {
-                    // 明确说明经度位置
-                    if (Math.abs(parts[1]) > 90) {
-                        lon = parts[1]; lat = parts[0]; // 第二个数大于90，第二个数是经度
-                    } else {
-                        lon = parts[0]; lat = parts[1]; // 按照默认 经度,纬度
-                    }
+                    if (Math.abs(parts[1]) > 90) { lon = parts[1]; lat = parts[0]; }
+                    else { lon = parts[0]; lat = parts[1]; }
                 } else {
-                    // 没有任何字母，默认经度, 纬度。如果第一个大于90，自动纠偏
-                    if (Math.abs(parts[0]) > 90) {
-                        lon = parts[0]; lat = parts[1];
-                    } else {
-                        lon = parts[0]; lat = parts[1]; // 默认 经度,纬度
-                    }
+                    if (Math.abs(parts[0]) > 90) { lon = parts[0]; lat = parts[1]; }
+                    else { lon = parts[0]; lat = parts[1]; }
                 }
             } else if (parts.length === 4) {
-                // 格式：度分 "108 56 34 20"
-                if (hasNorth || hasSouth) {
-                    lat = parts[0] + parts[1]/60; lon = parts[2] + parts[3]/60;
-                } else {
-                    lon = parts[0] + parts[1]/60; lat = parts[2] + parts[3]/60;
-                }
+                if (hasNorth || hasSouth) { lat = parts[0] + parts[1]/60; lon = parts[2] + parts[3]/60; }
+                else { lon = parts[0] + parts[1]/60; lat = parts[2] + parts[3]/60; }
             } else if (parts.length === 6) {
-                // 格式：度分秒 "108 56 24 34 20 24"
-                if (hasNorth || hasSouth) {
-                    lat = parts[0] + parts[1]/60 + parts[2]/3600; lon = parts[3] + parts[4]/60 + parts[5]/3600;
-                } else {
-                    lon = parts[0] + parts[1]/60 + parts[2]/3600; lat = parts[3] + parts[4]/60 + parts[5]/3600;
-                }
+                if (hasNorth || hasSouth) { lat = parts[0] + parts[1]/60 + parts[2]/3600; lon = parts[3] + parts[4]/60 + parts[5]/3600; }
+                else { lon = parts[0] + parts[1]/60 + parts[2]/3600; lat = parts[3] + parts[4]/60 + parts[5]/3600; }
             }
 
-            // 4. 正负号修正
             if (lon !== null && lat !== null) {
                 if (isSouth) lat = -Math.abs(lat);
                 if (isWest) lon = -Math.abs(lon);
-
-                if (Math.abs(lon) <= 180 && Math.abs(lat) <= 90) {
-                    return [lon, lat];
-                }
+                if (Math.abs(lon) <= 180 && Math.abs(lat) <= 90) return [lon, lat];
             }
             return null;
         }
@@ -473,7 +539,7 @@
                     const gcjCoord = wgs84ToGcj02(lon, lat);
                     searchMarkerSource.addFeature(new ol.Feature({ geometry: new ol.geom.Point(gcjCoord) }));
                     map.getView().animate({ center: gcjCoord, zoom: 16, duration: 800 });
-                    showPopup('坐标定位', `经度: ${lon}<br>纬度: ${lat}`, gcjCoord);
+                    showPopup('坐标定位', `经度: ${lon}<br>纬度: ${lat}`, gcjCoord, null);
                 });
             });
 
@@ -487,7 +553,7 @@
                     else if (geom instanceof ol.geom.LineString) coord = geom.getCoordinateAt(0.5);
                     else coord = geom.getCoordinates(); 
                     map.getView().animate({ center: coord, zoom: 16, duration: 500 });
-                    showPopup(item.name, item.desc, coord);
+                    showPopup(item.name, item.desc, coord, geom);
                 });
             });
 
@@ -515,7 +581,7 @@
                                     const coord = [lng, lat]; 
                                     searchMarkerSource.addFeature(new ol.Feature({ geometry: new ol.geom.Point(coord) }));
                                     map.getView().animate({ center: coord, zoom: 14, duration: 500 });
-                                    showPopup(name, '高德地址：' + address, coord);
+                                    showPopup(name, '高德地址：' + address, coord, null);
                                 });
                             });
                         } else if (container) {
@@ -546,9 +612,10 @@
         map.addOverlay(popup);
         popupElement.querySelector('.popup-closer').addEventListener('click', function() { popup.setPosition(undefined); });
 
-        function showPopup(title, content, coord) {
+        function showPopup(title, content, coord, geometry) {
             popupElement.querySelector('.popup-title').textContent = title;
-            popupElement.querySelector('.popup-content').innerHTML = content.replace(/\n/g, '<br>') || '（无描述信息）';
+            const metricsHtml = geometry ? getFeatureMetrics(geometry) : '';
+            popupElement.querySelector('.popup-content').innerHTML = metricsHtml + (content.replace(/\n/g, '<br>') || '（无描述信息）');
             popup.setPosition(coord);
         }
 
@@ -560,7 +627,7 @@
                     const idx = featureSearchIndex.findIndex(item => item.feature === feature);
                     let name = idx !== -1 ? featureSearchIndex[idx].name : (feature.get('name') || feature.get('Name') || '（无标题）');
                     let description = idx !== -1 ? featureSearchIndex[idx].desc : (feature.get('description') || feature.get('Description') || '');
-                    showPopup(name, description, event.coordinate);
+                    showPopup(name, description, event.coordinate, feature.getGeometry());
                     featureFound = true;
                     return true;
                 }
@@ -668,6 +735,7 @@
             });
             measureSource.clear(); activeTooltip.setPosition(undefined);
         }
+        
         let deleteTimeout;
         document.body.addEventListener('click', function(e) {
             if (e.target && e.target.classList.contains('measure-delete-btn')) {
@@ -680,6 +748,14 @@
                         measureSource.removeFeature(feature);
                     }
                 }, 100);
+            }
+            // 监听下载按钮
+            if (e.target && e.target.classList.contains('measure-download-btn')) {
+                const featureId = e.target.getAttribute('data-id');
+                const feature = measureSource.getFeatureById(featureId);
+                if (feature) {
+                    downloadKML(feature);
+                }
             }
         });
 
@@ -709,7 +785,18 @@
                 const feature = evt.feature; const featureId = 'measure_' + Date.now(); feature.setId(featureId);
                 let tooltipEl = document.createElement('div'); tooltipEl.className = 'measure-tooltip';
                 const currentText = activeTooltipElement.innerHTML;
-                tooltipEl.innerHTML = `<span>${currentText}</span><span class="measure-delete-btn" data-id="${featureId}">×</span>`;
+                
+                // 加入下载按钮
+                tooltipEl.innerHTML = `
+                    <div style="display:flex; flex-direction:column; gap:6px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+                            <span>${currentText}</span>
+                            <span class="measure-delete-btn" data-id="${featureId}">×</span>
+                        </div>
+                        <button class="measure-download-btn" data-id="${featureId}" style="background:#4CAF50; color:white; border:none; border-radius:4px; padding:2px 8px; font-size:11px; cursor:pointer;">下载为kml</button>
+                    </div>
+                `;
+
                 let staticTooltip = new ol.Overlay({ element: tooltipEl, offset: [0, -15], positioning: 'bottom-center', stopEvent: true });
                 map.addOverlay(staticTooltip);
                 const geom = feature.getGeometry();
