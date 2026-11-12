@@ -13,9 +13,9 @@
         #progress-bar { position: fixed; bottom: 20px; left: 20px; right: 20px; height: 30px; background: rgba(0,0,0,0.7); border-radius: 15px; z-index: 1000; display: none; overflow: hidden; }
         #progress-fill { height: 100%; background: #4CAF50; border-radius: 15px; width: 0%; transition: width 0.3s; line-height: 30px; color: white; text-align: center; font-size: 14px; position: relative; }
         #progress-tip { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; font-weight: 500; pointer-events: none; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); letter-spacing: 1px; }
-        #status { position: fixed; bottom: 60px; left: 20px; background: rgba(0,0,0,0.7); color: white; padding: 8px 15px; border-radius: 20px; font-size: 12px; z-index: 1000; font-family: monospace; }
+        #status { position: fixed; bottom: 60px; left: 20px; background: rgba(0,0,0,0.7); color: white; padding: 8px 15px; border-radius: 20px; font-size: 12px; z-index: 1000; font-family: monospace; transition: opacity 0.5s; }
         #top-controls { position: fixed; top: 20px; right: 20px; z-index: 1100; display: flex; gap: 10px; }
-        .ctrl-btn { padding: 10px 18px; background: rgba(30, 30, 30, 0.85); color: #f0f0f0; border: 1px solid #555; border-radius: 30px; font-size: 14px; font-weight: 500; cursor: pointer; box-shadow: 0 2px 12px rgba(0,0,0,0.4); backdrop-filter: blur(4px); transition: all 0.2s ease; letter-spacing: 0.5px; }
+        .ctrl-btn { padding: 10px 18px; background: rgba(30, 30, 30, 0.85); color: #f0f0f0; border: 1px solid #555; border-radius: 30px; font-size: 14px; font-weight: 500; cursor: pointer; box-shadow: 0 2px 12px rgba(0,0,0,0.4); backdrop-filter: blur(4px); transition: all 0.2s ease; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; gap: 4px; }
         .ctrl-btn:hover { background: rgba(60, 60, 60, 0.95); border-color: #aaa; transform: scale(1.02); }
         .ctrl-btn.active { background: rgba(200, 180, 100, 0.9); color: #1a1a1a; border-color: #cbb77a; }
         #sidebar { position: fixed; top: 20px; left: 20px; bottom: 80px; width: 320px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 1100; display: flex; flex-direction: column; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); transform: translateX(0); }
@@ -53,12 +53,23 @@
         .measure-tooltip:before { border-top: 6px solid rgba(0, 0, 0, 0.7); border-right: 6px solid transparent; border-left: 6px solid transparent; content: ""; position: absolute; bottom: -6px; margin-left: -7px; left: 50%; }
         .measure-delete-btn { background: #ff4d4f; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; font-size: 12px; line-height: 1; transition: background 0.2s; }
         .measure-delete-btn:hover { background: #ff7875; }
+        
+        /* 定位按钮内的自定义图标 */
+        .locate-icon {
+            width: 14px; height: 14px; background: #1890ff; border: 1.5px solid #fff; border-radius: 50%;
+            box-shadow: 0 0 4px rgba(0,0,0,0.3); display: inline-block; position: relative;
+        }
+        .locate-icon::after {
+            content: ''; position: absolute; top: -4px; left: 2px;
+            border-left: 3px solid transparent; border-right: 3px solid transparent; border-bottom: 5px solid #1890ff;
+        }
+
         @media (max-width: 768px) {
             #top-controls { top: auto; bottom: 20px; left: 10px; right: 10px; justify-content: space-between; gap: 5px; }
             .ctrl-btn { flex: 1; padding: 12px 0; font-size: 14px; display: flex; justify-content: center; align-items: center; }
-            #sidebar { top: 10px; left: 10px; bottom: 75px; width: calc(100vw - 20px); max-width: none; }
+            #sidebar { top: 10px; left: 10px; bottom: 75px; width: 85vw; max-width: 340px; }
             #sidebar.collapsed { transform: translateX(-100%); }
-            #sidebar-toggle { width: 32px; height: 54px; right: -24px; font-size: 16px; border-radius: 0 8px 8px 0; }
+            #sidebar-toggle { width: 32px; height: 54px; right: -28px; font-size: 16px; border-radius: 0 8px 8px 0; }
             #sidebar.collapsed #sidebar-toggle { right: -44px; border-radius: 8px; box-shadow: 2px 0 12px rgba(0,0,0,0.2); }
             #back-home { bottom: auto; top: 20px; right: 20px; left: auto; }
             .ol-popup { min-width: 200px; max-width: 85vw; max-height: 50vh; }
@@ -96,7 +107,7 @@
         <button class="ctrl-btn" id="measure-line-btn">📏 测距</button>
         <button class="ctrl-btn" id="measure-area-btn">⬛ 测面积</button>
         <button class="ctrl-btn" id="light-toggle">🌙 关灯</button>
-        <button class="ctrl-btn" id="locate-btn">📍 定位</button>
+        <button class="ctrl-btn" id="locate-btn"><span class="locate-icon"></span> 定位</button>
     </div>
 
     <a id="back-home" href="index.html">← 返回首页</a>
@@ -178,6 +189,10 @@
             if (interaction instanceof ol.interaction.DragRotateAndZoom) {
                 interaction.setActive(false);
             }
+        });
+        // 锁定地图旋转角度为 0
+        map.getView().on('change:rotation', function() {
+            if (map.getView().getRotation() !== 0) map.getView().setRotation(0);
         });
 
         const searchMarkerSource = new ol.source.Vector();
@@ -266,6 +281,13 @@
                     if (!isExtra) {
                         statusDiv.innerText = `✅ 城址加载完成！共 ${totalCount} 个要素`;
                         setTimeout(() => { progressBar.style.display = 'none'; }, 3000);
+                        
+                        // 提示框在5秒后自动消失
+                        setTimeout(() => { 
+                            statusDiv.style.opacity = '0'; 
+                            setTimeout(() => { statusDiv.style.display = 'none'; }, 500);
+                        }, 5000);
+
                         const extent = vectorLayer.getSource().getExtent();
                         if (extent && !isNaN(extent[0])) map.getView().fit(extent, { padding: [50, 50, 50, 50] });
                     }
@@ -274,15 +296,33 @@
             setTimeout(addBatch, 50);
         }
 
+        // 模拟慢速加载动画
+        let fakeProgressInterval;
+        function startFakeProgress() {
+            let currentPercent = 5;
+            fakeProgressInterval = setInterval(() => {
+                if (currentPercent < 50) {
+                    currentPercent += 0.5;
+                    progressFill.style.width = currentPercent + '%';
+                    progressFill.innerText = Math.round(currentPercent) + '%';
+                }
+            }, 200);
+        }
+
         async function loadMainData() {
             try {
-                const response = await fetch(KML_FILE);
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 progressBar.style.display = 'block';
+                progressTip.style.display = 'flex';
+                progressTip.innerText = '初次加载速度可能较慢，请耐心等待';
                 progressFill.style.width = '5%';
                 progressFill.innerText = '5%';
-                statusDiv.innerText = '正在下载城址数据...';
+                statusDiv.innerText = '正在连接服务器...';
+                startFakeProgress();
 
+                const response = await fetch(KML_FILE);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                statusDiv.innerText = '正在下载城址数据...';
                 const reader = response.body.getReader();
                 const chunks = [];
                 while (true) {
@@ -290,11 +330,13 @@
                     if (done) break;
                     chunks.push(value);
                 }
-                const arrayBuffer = await new Blob(chunks).arrayBuffer();
+                
+                clearInterval(fakeProgressInterval);
                 progressFill.style.width = '55%';
                 progressFill.innerText = '55%';
-                statusDiv.innerText = '正在解压...';
+                statusDiv.innerText = '正在解压数据...';
 
+                const arrayBuffer = await new Blob(chunks).arrayBuffer();
                 const isKMZ = new Uint8Array(arrayBuffer)[0] === 0x50;
                 if (isKMZ) {
                     const zip = await JSZip.loadAsync(arrayBuffer);
@@ -302,11 +344,16 @@
                     zip.forEach(function(path, file) {
                         if (path.toLowerCase().endsWith('.kml')) kmlFile = file;
                     });
-                    if (kmlFile) parseKMLAndAddFeatures(await kmlFile.async('text'), vectorLayer, false);
+                    if (kmlFile) {
+                        statusDiv.innerText = '正在解析...';
+                        parseKMLAndAddFeatures(await kmlFile.async('text'), vectorLayer, false);
+                    }
                 } else {
+                    statusDiv.innerText = '正在解析...';
                     parseKMLAndAddFeatures(new TextDecoder('utf-8').decode(arrayBuffer), vectorLayer, false);
                 }
             } catch (error) {
+                clearInterval(fakeProgressInterval);
                 statusDiv.innerText = `❌ 城址加载失败: ${error.message}`;
                 progressBar.style.display = 'none';
             }
@@ -558,6 +605,7 @@
             popup.setPosition(coord);
         }
 
+        // 移动端扩大点击容差
         map.on('click', function(event) {
             if (isMeasuring) return;
             let featureFound = false;
@@ -580,7 +628,7 @@
                     featureFound = true;
                     return true;
                 }
-            });
+            }, { hitTolerance: 15 }); // 15像素容差
             if (!featureFound) popup.setPosition(undefined);
         });
 
@@ -601,7 +649,7 @@
 
             const feature = map.forEachFeatureAtPixel(event.pixel, function(feat, layer) {
                 if (layer === vectorLayer || layer === extraVectorLayer) return feat;
-            });
+            }, { hitTolerance: 15 }); // 移动端高亮容差
 
             if (feature !== lastHighlightedFeature) {
                 highlightOverlay.getSource().clear();
@@ -823,10 +871,11 @@
         });
 
         // ============================================================
-        // 持续定位与追踪功能
+        // 持续定位与追踪功能 (重写版)
         // ============================================================
         const locateBtn = document.getElementById('locate-btn');
         
+        // 1. 定位蓝点图层
         const locationSource = new ol.source.Vector();
         const locationLayer = new ol.layer.Vector({
             source: locationSource,
@@ -840,53 +889,87 @@
         });
         map.addLayer(locationLayer);
 
+        // 2. 精度圈图层
+        const accuracySource = new ol.source.Vector();
+        const accuracyLayer = new ol.layer.Vector({
+            source: accuracySource,
+            style: new ol.style.Style({
+                fill: new ol.style.Fill({ color: 'rgba(24, 144, 255, 0.15)' }),
+                stroke: new ol.style.Stroke({ color: 'rgba(24, 144, 255, 0.4)', width: 1 })
+            }),
+            zIndex: 998
+        });
+        map.addLayer(accuracyLayer);
+
+        // 3. Geolocation 配置，彻底修复坐标系
         const geolocation = new ol.Geolocation({
-            projection: map.getView().getProjection(),
-            trackingOptions: { enableHighAccuracy: true }
+            projection: 'EPSG:4326', // 强制使用 WGS84
+            trackingOptions: { 
+                enableHighAccuracy: true,
+                timeout: 15000
+            }
         });
 
         let isTrackingLocation = false;
+        let firstFix = true;
 
         locateBtn.addEventListener('click', function() {
             if (isTrackingLocation) {
                 geolocation.setTracking(false);
                 locationSource.clear();
+                accuracySource.clear();
                 isTrackingLocation = false;
                 this.classList.remove('active');
-                this.innerHTML = '📍 定位';
+                this.innerHTML = '<span class="locate-icon"></span> 定位';
                 return;
             }
 
             geolocation.setTracking(true);
-            this.innerHTML = '⌛ 定位中...';
-            
+            this.innerHTML = '<span class="locate-icon"></span> 定位中...';
+            this.classList.add('active');
+
             geolocation.on('change:position', function() {
                 const pos = geolocation.getPosition();
                 if (!pos) return;
 
                 isTrackingLocation = true;
-                locateBtn.innerHTML = '🛑 停止定位';
+                locateBtn.innerHTML = '<span class="locate-icon"></span> 停止';
                 locateBtn.classList.add('active');
 
-                let finalPos = pos;
-                // 卫星图不需要转换，但为了兼容代码结构保留 if 判断
-                if (typeof NEED_GCJ02 !== 'undefined' && NEED_GCJ02) {
-                    finalPos = wgs84ToGcj02(pos[0], pos[1]);
-                }
+                let finalPos = pos; // 卫星图直接使用 WGS84
 
                 locationSource.clear();
                 locationSource.addFeature(new ol.Feature({ geometry: new ol.geom.Point(finalPos) }));
 
-                map.getView().animate({ center: finalPos, zoom: 16, duration: 500 });
+                const accuracy = geolocation.getAccuracy();
+                accuracySource.clear();
+                if (accuracy) {
+                    const radiusInDegrees = accuracy / 111320; 
+                    const circle = new ol.geom.Circle(finalPos, radiusInDegrees);
+                    accuracySource.addFeature(new ol.Feature(circle));
+                }
+
+                if (firstFix) {
+                    map.getView().animate({ center: finalPos, zoom: 17, duration: 800 });
+                    firstFix = false;
+                } else {
+                    map.getView().animate({ center: finalPos, duration: 300 });
+                }
             });
 
             geolocation.on('error', function(error) {
                 console.warn('定位失败:', error.message);
-                locateBtn.innerHTML = '📍 定位';
-                locateBtn.classList.remove('active');
-                isTrackingLocation = false;
-                geolocation.setTracking(false);
-                if (error.code === 1) alert('您拒绝了定位权限，网站其他功能可以正常使用。如需定位，请在浏览器设置中允许。');
+                setTimeout(() => {
+                    if (geolocation.getTracking() && !geolocation.getPosition()) {
+                        locateBtn.innerHTML = '<span class="locate-icon"></span> 定位';
+                        locateBtn.classList.remove('active');
+                        isTrackingLocation = false;
+                        geolocation.setTracking(false);
+                        if (error.code === 1) {
+                            alert('无法获取位置。请确保已开启手机 GPS，并允许浏览器获取您的位置。');
+                        }
+                    }
+                }, 2000);
             });
         });
 
