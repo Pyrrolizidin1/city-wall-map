@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="folder-tree.js"></script>
+    <script src="line-filter.js"></script>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
         #map { width: 100%; height: 100%; }
@@ -67,6 +68,7 @@
 
         /* 图层目录（KMZ 文件夹结构） */
         .folder-tree { flex: 1; overflow-y: auto; padding: 6px 8px 12px; }
+        #line-filter { padding-bottom: 6px; margin-bottom: 6px; border-bottom: 1px solid #eee; }
         .folder-tree::-webkit-scrollbar { width: 6px; }
         .folder-tree::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
         .ft-header { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 6px; font-size: 12px; color: #888; }
@@ -118,6 +120,7 @@
             <label class="layer-toggle-item"><input type="checkbox" id="toggle-extra-layer" checked> 轮廓未定点位</label>
         </div>
         <div class="folder-tree" id="folder-tree">
+            <div id="line-filter"></div>
             <div class="ft-header">
                 <span>图层目录</span>
                 <span class="ft-actions"><button type="button" id="ft-all">全选</button><button type="button" id="ft-none">全不选</button><button type="button" id="ft-collapse">全部收起</button></span>
@@ -265,6 +268,24 @@
         map.addLayer(extraVectorLayer);
         extraVectorLayer.setZIndex(3); 
 
+        const mainVisibility = LineFilter.createVisibility(vectorLayer);
+        const extraVisibility = LineFilter.createVisibility(extraVectorLayer);
+
+        function redrawFeatures(layer) {
+            if (lastHighlightedFeature) {
+                lastHighlightedFeature = null;
+                highlightOverlay.getSource().clear();
+                map.getTargetElement().style.cursor = '';
+            }
+            popup.setPosition(undefined);
+            layer.changed();
+        }
+
+        const getLineOptions = LineFilter.create(
+            document.getElementById('line-filter'),
+            () => redrawFeatures(vectorLayer)
+        );
+
         document.getElementById('toggle-main-layer').addEventListener('change', function(e) {
             vectorLayer.setVisible(e.target.checked);
         });
@@ -314,8 +335,9 @@
             const matched = KmlFolderTree.attachFeatures(parsed, features);
             if (matched === features.length) {
                 treeContainer.replaceChildren();
-                const tree = KmlFolderTree.render(treeContainer, parsed, targetLayer.getSource(), {
-                    expanded: !isExtra && !collapseNewTrees
+                const tree = KmlFolderTree.render(treeContainer, parsed.root, {
+                    expanded: !isExtra && !collapseNewTrees,
+                    onChange: () => redrawFeatures(targetLayer)
                 });
                 if (!defaultFolderSelection) tree.setAll(false);
                 folderTrees.push(tree);
@@ -324,6 +346,7 @@
                 showFolderStatus(treeContainer, '目录解析失败，已显示全部要素');
             }
 
+            const visibility = isExtra ? extraVisibility : mainVisibility;
             const totalCount = features.length;
             let addedCount = 0;
             const batchSize = 2000; 
@@ -340,6 +363,7 @@
                     const name = feature.get('name') || feature.get('Name') || '未命名';
                     const desc = feature.get('description') || feature.get('Description') || '';
                     const searchText = (name + ' ' + desc).toLowerCase();
+                    visibility.prepare(feature, isExtra ? null : getLineOptions(desc));
 
                     featureSearchIndex.push({
                         feature: feature, name: name, desc: desc, searchText: searchText, layer: targetLayer
@@ -353,8 +377,7 @@
                     }
                 });
 
-                batch.forEach(function(f) { f.__loaded = true; });
-                targetLayer.getSource().addFeatures(batch.filter(KmlFolderTree.isFeatureVisible));
+                targetLayer.getSource().addFeatures(batch);
                 addedCount = end;
 
                 if (!isExtra) {
@@ -749,12 +772,18 @@
             popup.setPosition(coord);
         }
 
+        function isMapFeatureVisible(feature, layer) {
+            if (layer === vectorLayer) return layer.getVisible() && mainVisibility.isVisible(feature);
+            if (layer === extraVectorLayer) return layer.getVisible() && extraVisibility.isVisible(feature);
+            return false;
+        }
+
         // 移动端扩大点击容差
         map.on('click', function(event) {
             if (isMeasuring) return;
             let featureFound = false;
             map.forEachFeatureAtPixel(event.pixel, function(feature, layer) {
-                if (layer === vectorLayer || layer === extraVectorLayer) {
+                if (isMapFeatureVisible(feature, layer)) {
                     const idx = featureSearchIndex.findIndex(item => item.feature === feature);
                     let name = idx !== -1 ? featureSearchIndex[idx].name : (feature.get('name') || feature.get('Name') || '（无标题）');
                     let description = idx !== -1 ? featureSearchIndex[idx].desc : (feature.get('description') || feature.get('Description') || '');
@@ -781,7 +810,7 @@
             if (isMeasuring) { map.getTargetElement().style.cursor = 'crosshair'; return; }
             if (event.dragging) return;
             const feature = map.forEachFeatureAtPixel(event.pixel, function(feat, layer) {
-                if (layer === vectorLayer || layer === extraVectorLayer) return feat;
+                if (isMapFeatureVisible(feat, layer)) return feat;
             }, { hitTolerance: 15 }); // 移动端高亮容差
 
             if (feature !== lastHighlightedFeature) {
@@ -791,8 +820,8 @@
                     const geom = feature.getGeometry();
                     const highlightFeature = new ol.Feature(geom.clone());
                     if (geom.getType() === 'Point') {
-                        let origStyle = feature.getStyle();
-                        if (typeof origStyle === 'function') origStyle = origStyle(feature);
+                        const styles = feature.getStyleFunction()(feature, map.getView().getResolution());
+                        const origStyle = Array.isArray(styles) ? styles[0] : styles;
                         if (origStyle && origStyle.getImage()) {
                             highlightFeature.setStyle(new ol.style.Style({ image: origStyle.getImage().clone() }));
                         } else {

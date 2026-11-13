@@ -25,7 +25,7 @@
         let seq = 0;
 
         function build(el, parent) {
-            const node = { name: folderName(el), parent: parent, children: [], features: [], ids: [], total: 0, on: true, expanded: false, el: null };
+            const node = { name: folderName(el), parent: parent, children: [], ids: [], total: 0, on: true, expanded: false, el: null };
             for (let c = el.firstElementChild; c; c = c.nextElementSibling) {
                 const ln = c.localName;
                 if (ln === 'Folder' || ln === 'Document') {
@@ -58,12 +58,12 @@
         let matched = 0;
         features.forEach(function (f) {
             const node = parsed.nodeById.get(f.getId());
-            if (node) { node.features.push(f); f.__folderNode = node; matched++; }
+            if (node) { f.__folderNode = node; matched++; }
         });
         return matched;
     }
 
-    // 要素当前是否应显示（所在文件夹及所有上级都勾选）
+    // 每个节点记录其直属要素的选择状态。父级勾选会更新整棵子树。
     function isFeatureVisible(feature) {
         const node = feature.__folderNode;
         return !node || node.on;
@@ -71,7 +71,7 @@
 
     function state(node) {
         let on = 0, off = 0;
-        if (node.ids.length) (node.on ? on++ : off++);
+        if (!node.children.length || node.ids?.length) (node.on ? on++ : off++);
         for (const c of node.children) {
             const s = state(c);
             if (s === 'mixed') return 'mixed';
@@ -81,21 +81,9 @@
         return off ? (on ? 'mixed' : 'off') : 'on';
     }
 
-    // 设置整棵子树的勾选状态，并把变化的已加载要素加入/移出图层
-    function setSubtree(node, on, source) {
-        const toAdd = [], toRemove = [];
-        (function walk(n) {
-            if (n.on !== on) {
-                n.on = on;
-                for (const f of n.features) {
-                    if (!f.__loaded) continue;
-                    (on ? toAdd : toRemove).push(f);
-                }
-            }
-            n.children.forEach(walk);
-        })(node);
-        if (toRemove.length) source.removeFeatures(toRemove);
-        if (toAdd.length) source.addFeatures(toAdd);
+    function setSubtree(node, on) {
+        node.on = on;
+        for (const child of node.children) setSubtree(child, on);
     }
 
     function refresh(node) {
@@ -134,7 +122,8 @@
         count.className = 'ft-count';
         count.textContent = node.total;
 
-        row.append(caret, cb, label, count);
+        row.append(caret, cb, label);
+        if (node.total !== undefined) row.appendChild(count);
         li.appendChild(row);
 
         let ul = null;
@@ -161,8 +150,9 @@
             label.addEventListener('click', toggleExpand);
         }
         cb.addEventListener('change', function () {
-            setSubtree(node, cb.checked, tree.source);
+            setSubtree(node, cb.checked);
             refresh(tree.root);
+            tree.onChange();
         });
 
         node.el = { checkbox: cb, li: li, collapse: function () {
@@ -174,15 +164,18 @@
     }
 
     // 在 container 中渲染一棵树（根节点默认展开一层）
-    function render(container, parsed, source, opts) {
-        opts = opts || {};
-        const tree = { root: parsed.root, source: source };
-        parsed.root.expanded = !!opts.expanded && parsed.root.children.length > 0;
+    function render(container, root, { expanded, onChange }) {
+        const tree = { root, onChange };
+        root.expanded = !!expanded && root.children.length > 0;
         const ul = document.createElement('ul');
         ul.className = 'ft-list ft-root';
-        ul.appendChild(renderNode(parsed.root, tree));
+        ul.appendChild(renderNode(root, tree));
         container.appendChild(ul);
-        tree.setAll = function (on) { setSubtree(tree.root, on, source); refresh(tree.root); };
+        tree.setAll = function (on) {
+            setSubtree(root, on);
+            refresh(root);
+            onChange();
+        };
         tree.collapseAll = function () {
             (function walk(n) { n.children.forEach(walk); if (n.el) n.el.collapse(); })(tree.root);
         };
