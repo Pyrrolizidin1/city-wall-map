@@ -118,9 +118,7 @@
             <div id="folder-tree-extra"><div class="ft-empty">轮廓未定目录加载中...</div></div>
             
             <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
-                <div class="ft-header">
-                    <span>线型筛选</span>
-                </div>
+                <div class="ft-header"><span>线型筛选</span></div>
                 <ul class="ft-list" id="type-filter-list"></ul>
             </div>
         </div>
@@ -148,7 +146,7 @@
         const NEED_GCJ02 = false;
 
         // ==========================================
-        // 筛选逻辑：通过样式函数拦截渲染
+        // 线型筛选逻辑
         // ==========================================
         const ALL_TYPES = ['Co', 'Ct', 'Bo', 'Bt', 'Po', 'Pt', 'Go', 'Gt', 'Yx', 'Oo'];
         const TYPE_GROUPS = {
@@ -167,26 +165,6 @@
             const m = desc.match(/\*线型[:：]\s*([A-Za-z]+)/);
             if (m && ALL_TYPES.includes(m[1])) return m[1];
             return '__OTHER__';
-        }
-
-        function checkFeatureVisible(feature) {
-            const keys = getFilterKeys(feature);
-            if (Array.isArray(keys)) return keys.some(k => selectedTypes.has(k));
-            return selectedTypes.has(keys);
-        }
-
-        function filterStyle(feature, resolution) {
-            if (typeof KmlFolderTree !== 'undefined' && !KmlFolderTree.isFeatureVisible(feature)) {
-                return null;
-            }
-            if (!checkFeatureVisible(feature)) {
-                return null;
-            }
-            let style = feature.getStyle();
-            if (typeof style === 'function') {
-                style = style.call(feature, resolution);
-            }
-            return style || undefined; 
         }
 
         function renderFilterUI() {
@@ -223,8 +201,8 @@
                 cb.addEventListener('change', function() {
                     if (this.checked) selectedTypes.add(this.value);
                     else selectedTypes.delete(this.value);
-                    vectorLayer.changed();
-                    extraVectorLayer.changed();
+                    
+                    applyFilterToMap();
                 });
             });
         }
@@ -240,6 +218,32 @@
                 caret.textContent = '▶';
             }
         };
+
+        function applyFilterToMap() {
+            [vectorLayer, extraVectorLayer].forEach(layer => {
+                const source = layer.getSource();
+                const features = source.getFeatures();
+                if (!features.length) return;
+
+                const toAdd = [];
+                const toRemove = [];
+
+                features.forEach(f => {
+                    const folderVisible = KmlFolderTree.isFeatureVisible(f);
+                    const type = getFilterKeys(f);
+                    const typeVisible = selectedTypes.has(type);
+                    
+                    if (folderVisible && typeVisible) {
+                        toAdd.push(f);
+                    } else {
+                        toRemove.push(f);
+                    }
+                });
+
+                if (toRemove.length) source.removeFeatures(toRemove);
+                if (toAdd.length) source.addFeatures(toAdd);
+            });
+        }
         // ==========================================
 
         ol.proj.useGeographic();
@@ -336,11 +340,11 @@
         const progressFill = document.getElementById('progress-fill');
         const progressTip = document.getElementById('progress-tip');
 
-        const vectorLayer = new ol.layer.Vector({ source: new ol.source.Vector(), style: filterStyle });
+        const vectorLayer = new ol.layer.Vector({ source: new ol.source.Vector() });
         map.addLayer(vectorLayer);
         vectorLayer.setZIndex(2);
 
-        const extraVectorLayer = new ol.layer.Vector({ source: new ol.source.Vector(), declutter: false, style: filterStyle });
+        const extraVectorLayer = new ol.layer.Vector({ source: new ol.source.Vector(), declutter: false });
         map.addLayer(extraVectorLayer);
         extraVectorLayer.setZIndex(3);
 
@@ -432,7 +436,14 @@
                 });
 
                 batch.forEach(function(f) { f.__loaded = true; });
-                targetLayer.getSource().addFeatures(batch);
+                
+                const validFeatures = batch.filter(f => {
+                    const folderVisible = KmlFolderTree.isFeatureVisible(f);
+                    const type = getFilterKeys(f);
+                    return folderVisible && selectedTypes.has(type);
+                });
+                
+                targetLayer.getSource().addFeatures(validFeatures);
                 addedCount = end;
 
                 if (!isExtra) {
