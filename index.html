@@ -162,6 +162,35 @@
             border-radius: 30px;
         }
 
+        /* 新增：网站介绍及使用说明 */
+        .intro-box {
+            background: #fcf9f2;
+            padding: 20px 24px;
+            border-radius: 12px;
+            margin: 18px 0 22px 0;
+            border: 1px solid #e2d9cb;
+            border-left: 5px solid #bbaa92;
+            font-size: 14px;
+            line-height: 1.8;
+            color: #3d352a;
+        }
+        .intro-box h3 {
+            font-size: 16px;
+            letter-spacing: 1px;
+            font-weight: 600;
+            color: #3e3529;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed #e3dbcd;
+        }
+        .intro-box p {
+            margin-bottom: 10px;
+            text-align: justify;
+        }
+        .intro-box p:last-child {
+            margin-bottom: 0;
+        }
+
         .update-box {
             background: #f2ece1;
             padding: 18px 24px 12px 24px;
@@ -228,26 +257,6 @@
             font-weight: 600;
             color: #2f281e;
         }
-        .correction-box {
-            margin-top: 12px;
-            background: #e8e1d4;
-            padding: 8px 16px 10px 16px;
-            border-radius: 30px 6px 30px 6px;
-            font-size: 13px;
-            color: #3f372c;
-        }
-        .correction-box strong {
-            font-weight: 600;
-        }
-        .correction-box .tag {
-            background: #b8aa92;
-            color: #fcf9f2;
-            padding: 0 12px;
-            border-radius: 40px;
-            font-size: 12px;
-            margin-right: 8px;
-            display: inline-block;
-        }
 
         .download-box {
             background: #f8f4eb;
@@ -300,6 +309,55 @@
             color: #d9534f;
         }
 
+        /* 新增：外部链接模块 */
+        .link-box {
+            background: #f8f4eb;
+            padding: 18px 24px;
+            border-radius: 18px;
+            margin: 18px 0 22px 0;
+            border: 1px solid #e2d9cb;
+        }
+        .link-box h3 {
+            font-size: 16px;
+            letter-spacing: 2px;
+            font-weight: 600;
+            color: #3e3529;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .link-box h3::before {
+            content: "🔗";
+            font-size: 18px;
+        }
+        .link-list {
+            list-style: none;
+            padding-left: 4px;
+        }
+        .link-list li {
+            font-size: 14px;
+            line-height: 1.8;
+            color: #3d352a;
+            padding: 6px 0;
+            border-bottom: 1px dashed #e3dbcd;
+            display: flex;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .link-list li:last-child {
+            border-bottom: none;
+        }
+        .link-list a {
+            color: #0056b3;
+            text-decoration: none;
+            word-break: break-all;
+        }
+        .link-list a:hover {
+            text-decoration: underline;
+        }
+
         .enter-btn {
             display: block;
             width: 100%;
@@ -344,6 +402,7 @@
             .legend-grid { grid-template-columns: 1fr; gap: 2px; }
             .update-scroll { grid-template-columns: 1fr; max-height: 200px; }
             .enter-btn { font-size: 18px; letter-spacing: 4px; padding: 14px; }
+            .intro-box p { font-size: 13.5px; }
         }
         @media (max-width: 480px) {
             .scroll-card { padding: 20px 12px 22px 12px; }
@@ -411,6 +470,17 @@
         </div>
     </div>
 
+    <!-- ===== 新增：网站介绍及使用说明 ===== -->
+    <div class="intro-box">
+        <h3>网站介绍及使用说明</h3>
+        <p>本网站用于展示城市、聚落、军事据点的防御工事轮廓结构（以下统称“城址”），防御工事以城墙为主体，兼收山寨、圩子、宫墙、环壕、山险、水险，以及线性的长城、新建仿古城墙等等。年代跨度从约公元前7000年到现代，地域以中国及周边地区为主，其余国外部分也酌情绘制部分城墙轮廓（仅供参考）。目前已收入14000多条城址信息，但大部分区域仍有较多缺漏，因此本网站也将持续更新。</p>
+        <p>本页下方设有两个进入地图链接，分别以高德地图和Esri World Imagery为底图。高德地图可搜索国内地名；Esri可查看全球卫星影像图。两个链接均支持进行城址要素关键词查询和经纬度坐标搜索，也可以在地图上进行测距、测面积操作，测量操作生成的路径和多边形可下载为kml文件。</p>
+        <p>城址要素分为两大类：已确认其精确或大致轮廓的路径要素（侧栏“城址线型数据”）和无法确定轮廓和精确位置的点要素（侧栏“轮廓未定点位”）。点击地图上的任意城址要素，会弹出信息框，展示城址名称、起讫年代、别名、备注、参考文献等基本信息；同时显示该段城址的长度和中心坐标（闭合路径会显示面积）。</p>
+        <p>点击要素时显示的城址名称，不加括号者为该城址建成时的名称，如：“燕中都”“华州”“嘉定县”；加括号者为后人不知其原名的情况下称呼该城址的名称，如“（陶寺）”“（八里城）”“（古城子）”。</p>
+        <p>城址的起讫，一般按该城址轮廓形状形成的时间计为起始年代；以城墙拆除（以破坏其整体性为“拆除”，局部如瓮城、羊马城、城门之拆改不计）或城址废弃为废止年代。按此标准，以城址依据轮廓成型的起始年代将所有城址要素归类为远古时代、夏商时期、两周时期、秦汉时期、魏晋南北朝时期、隋唐时期、辽宋金时期、蒙元时期、明清时期、民国时期、本朝（现代），另外，沿用至清代的治所城墙大多无法精确溯源其轮廓成型年代，故均置于单独的“清治所”文件夹中，以其清代形态为准。无法简单按照中原年代归类的周边部族政权置于“藩邦”，其余国外城址置于“外国”，按现代国别与行政区划进行归类。</p>
+        <p>城址的参考，指该城址轮廓复原和基本信息所参照的地图文献或文本文献。相关的地图文献、遗址平面图可在主页下方的网盘资料链接中下载。文本参考文献电子版缺失较多，多数需要自行查找下载。</p>
+    </div>
+
     <div class="update-box">
         <h3>本期更新 · 2026.10.28</h3>
         
@@ -445,22 +515,27 @@
 重大误差修正：
 峡江县（清治所），（沙虎）（渤海-明），万载县（清治所），瑞昌县（清治所），御谋城（背城）（宋），广州满城（清），日照县（清治所），兴国州（清治所），南安府 大庾县（清治所）
             </pre>
-            <div class="correction-box">
-                <span class="tag">说明</span>
-                <strong>起始年代</strong>：一般按该城址轮廓形状形成的时间计。（除清府县外，一级分类按照起始年代分类）。<br>
-                <strong>废止年代</strong>：城墙拆除（以破坏其整体性为“拆除”，局部如瓮城、羊马城、城门之拆改不计）或城址废弃，二有一则视为废止。<br>
-                <strong>城址名</strong>：不加括号者为该城址建成时的名称，加括号者为该城址的现代名称，例如：“燕中都”“（窦店）”。
-            </div>
         </div>
     </div>
 
     <div class="download-box">
         <h3>参考资料下载</h3>
         <ul class="download-list">
-            <li>1. 城址参考旧地图、旧卫星图、复原平面图等。链接：<a href="xxx" target="_blank">https://pan.baidu.com/s/1mhYDC5NKuzzkaRMow53UQg?pwd=r7h9</a>，提取码：<span class="code">r7h9</span></li>
-            <li>2. 部分参考书籍、论文。链接：<a href="xxx" target="_blank">https://pan.baidu.com/s/15tAQ6dZIi79ofxntUMO_tQ?pwd=wom7</a>，提取码：<span class="code">wom7</span></li>
-            <li>3. 民国军用地图。链接：<a href="xxx" target="_blank">https://pan.baidu.com/s/1B2YKeS4Tsn8oVkj_kREeaw?pwd=uurg</a>，提取码：<span class="code">uurg</span></li>
-            <li>4. 地方志资料。链接：<a href="xxx" target="_blank">https://pan.baidu.com/s/1iBNhhOfjo5H3KvqLO4Y2PA?pwd=m9om</a>，提取码：<span class="code">m9om</span></li>
+            <li>1. 城址参考旧地图、旧卫星图、复原平面图等。链接：<a href="https://pan.baidu.com/s/1mhYDC5NKuzzkaRMow53UQg?pwd=r7h9" target="_blank">https://pan.baidu.com/s/1mhYDC5NKuzzkaRMow53UQg?pwd=r7h9</a>，提取码：<span class="code">r7h9</span></li>
+            <li>2. 部分参考书籍、论文。链接：<a href="https://pan.baidu.com/s/15tAQ6dZIi79ofxntUMO_tQ?pwd=wom7" target="_blank">https://pan.baidu.com/s/15tAQ6dZIi79ofxntUMO_tQ?pwd=wom7</a>，提取码：<span class="code">wom7</span></li>
+            <li>3. 民国军用地图。链接：<a href="https://pan.baidu.com/s/1B2YKeS4Tsn8oVkj_kREeaw?pwd=uurg" target="_blank">https://pan.baidu.com/s/1B2YKeS4Tsn8oVkj_kREeaw?pwd=uurg</a>，提取码：<span class="code">uurg</span></li>
+            <li>4. 地方志资料。链接：<a href="https://pan.baidu.com/s/1iBNhhOfjo5H3KvqLO4Y2PA?pwd=m9om" target="_blank">https://pan.baidu.com/s/1iBNhhOfjo5H3KvqLO4Y2PA?pwd=m9om</a>，提取码：<span class="code">m9om</span></li>
+        </ul>
+    </div>
+
+    <!-- ===== 新增：外部链接模块 ===== -->
+    <div class="link-box">
+        <h3>外部链接</h3>
+        <ul class="link-list">
+            <li><span>知乎主页：</span><a href="https://www.zhihu.com/people/bi-ding-38/columns" target="_blank">https://www.zhihu.com/people/bi-ding-38/columns</a></li>
+            <li><span>日勘军图：</span><a href="https://stanford.maps.arcgis.com/apps/PublicGallery/index.html?appid=1ed3022fc7884690a2f137bce9dfe4fe" target="_blank">https://stanford.maps.arcgis.com/apps/PublicGallery/index.html?appid=1ed3022fc7884690a2f137bce9dfe4fe</a></li>
+            <li><span>朝鲜半岛五万分一：</span><a href="https://earthworks.stanford.edu/catalog/stanford-ng525ny5879" target="_blank">https://earthworks.stanford.edu/catalog/stanford-ng525ny5879</a></li>
+            <li><span>吴钩斩月中国城池史：</span><a href="https://www.toutiao.com/c/user/token/MS4wLjABAAAAqPVHnPcZAPEGzXH-_YqjELLyUz6YPkhoK0uQaT1qsExy44lY6k5KYfC4wenzumDn/" target="_blank">https://www.toutiao.com/c/user/token/MS4wLjABAAAAqPVHnPcZAPEGzXH-_YqjELLyUz6YPkhoK0uQaT1qsExy44lY6k5KYfC4wenzumDn/</a></li>
         </ul>
     </div>
 
