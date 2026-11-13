@@ -55,17 +55,10 @@
         .measure-delete-btn { background: #ff4d4f; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; font-size: 12px; line-height: 1; transition: background 0.2s; }
         .measure-delete-btn:hover { background: #ff7875; }
         
-        /* 定位按钮内的自定义图标 */
-        .locate-icon {
-            width: 14px; height: 14px; background: #1890ff; border: 1.5px solid #fff; border-radius: 50%;
-            box-shadow: 0 0 4px rgba(0,0,0,0.3); display: inline-block; position: relative;
-        }
-        .locate-icon::after {
-            content: ''; position: absolute; top: -4px; left: 2px;
-            border-left: 3px solid transparent; border-right: 3px solid transparent; border-bottom: 5px solid #1890ff;
-        }
+        .locate-icon { width: 14px; height: 14px; background: #1890ff; border: 1.5px solid #fff; border-radius: 50%; box-shadow: 0 0 4px rgba(0,0,0,0.3); display: inline-block; position: relative; }
+        .locate-icon::after { content: ''; position: absolute; top: -4px; left: 2px; border-left: 3px solid transparent; border-right: 3px solid transparent; border-bottom: 5px solid #1890ff; }
 
-        /* 图层目录（KMZ 文件夹结构） */
+        /* 图层目录及线型筛选通用树状样式 */
         .folder-tree { flex: 1; overflow-y: auto; padding: 6px 8px 12px; }
         .folder-tree::-webkit-scrollbar { width: 6px; }
         .folder-tree::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
@@ -125,14 +118,12 @@
             <div id="folder-tree-main"><div class="ft-empty">城址目录加载中...</div></div>
             <div id="folder-tree-extra"><div class="ft-empty">轮廓未定目录加载中...</div></div>
             
-            <!-- 新增：线型筛选面板 -->
+            <!-- 线型筛选面板 (复用树状类名) -->
             <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
                 <div class="ft-header">
                     <span>线型筛选</span>
                 </div>
-                <ul class="ft-list" id="type-filter-list">
-                    <!-- JS 动态渲染 -->
-                </ul>
+                <ul class="ft-list" id="type-filter-list"></ul>
             </div>
         </div>
         <div class="search-results" id="search-results" style="display: none;"></div>
@@ -156,7 +147,7 @@
         const AMAP_KEY = 'b9989c3b248bd63e3358e0d92dc122f7'; 
 
         // ==========================================
-        // 线型/标签筛选核心逻辑 (解耦设计，方便未来切换)
+        // 筛选逻辑：通过样式函数拦截渲染，绝对不删内存数据，解决复原失败问题
         // ==========================================
         const ALL_TYPES = ['Co', 'Ct', 'Bo', 'Bt', 'Po', 'Pt', 'Go', 'Gt', 'Yx', 'Oo'];
         const TYPE_GROUPS = {
@@ -170,41 +161,60 @@
         };
         const selectedTypes = new Set(ALL_TYPES.concat(['__OTHER__']));
 
-        // 提取要素的筛选字段
+        // 【未来换标签】只改这里
         function getFilterKeys(feature) {
             const desc = feature.get('description') || feature.get('Description') || '';
-            // 【当前：线型筛选】
             const m = desc.match(/\*线型[:：]\s*([A-Za-z]+)/);
             if (m && ALL_TYPES.includes(m[1])) return m[1];
             return '__OTHER__';
-            
-            // 【未来：标签筛选】将上面四行替换为：
-            // const tagMatch = desc.match(/\*标签[:：]\s*(.+)/);
-            // if (tagMatch) return tagMatch[1].split(/[，,]/).map(t=>t.trim());
-            // return [];
         }
 
-        // 检查要素是否通过筛选 (未来如果是数组标签，使用 .some 判断)
         function checkFeatureVisible(feature) {
             const keys = getFilterKeys(feature);
             if (Array.isArray(keys)) return keys.some(k => selectedTypes.has(k));
             return selectedTypes.has(keys);
         }
 
-        // 动态渲染线型筛选 UI
+        // 核心过滤函数
+        function filterStyle(feature, resolution) {
+            // 目录树过滤
+            if (typeof KmlFolderTree !== 'undefined' && !KmlFolderTree.isFeatureVisible(feature)) {
+                return null;
+            }
+            // 线型过滤
+            if (!checkFeatureVisible(feature)) {
+                return null;
+            }
+            // 如果都通过，返回原样式或默认样式
+            let style = feature.getStyle();
+            if (typeof style === 'function') {
+                style = style.call(feature, resolution);
+            }
+            return style || undefined; 
+        }
+
+        // 生成树状筛选 UI
         function renderFilterUI() {
             const list = document.getElementById('type-filter-list');
             let html = '';
             for (const [groupName, types] of Object.entries(TYPE_GROUPS)) {
                 if (groupName === '其他') {
                     html += `<li class="ft-row" style="margin-top: 4px;">
+                        <span class="ft-caret" style="visibility:hidden;">▶</span>
                         <input type="checkbox" class="type-cb" value="__OTHER__" checked>
                         <span class="ft-name">其他 (未识别)</span>
                     </li>`;
                 } else {
-                    html += `<li><div class="ft-row" style="color:#666;">${groupName}</div><ul class="ft-list">`;
+                    const groupId = 'group_' + groupName;
+                    html += `<li>
+                        <div class="ft-row ft-row-expandable" onclick="toggleFilterGroup('${groupId}', this)">
+                            <button class="ft-caret">▼</button>
+                            <span class="ft-name" style="cursor:pointer;">${groupName}</span>
+                        </div>
+                        <ul class="ft-list" id="${groupId}">`;
                     types.forEach(t => {
                         html += `<li class="ft-row">
+                            <span class="ft-caret" style="visibility:hidden;">▶</span>
                             <input type="checkbox" class="type-cb" value="${t}" checked>
                             <span class="ft-name">${t}</span>
                         </li>`;
@@ -214,45 +224,28 @@
             }
             list.innerHTML = html;
 
-            // 绑定事件
             document.querySelectorAll('.type-cb').forEach(cb => {
                 cb.addEventListener('change', function() {
                     if (this.checked) selectedTypes.add(this.value);
                     else selectedTypes.delete(this.value);
-                    
-                    // 触发全量过滤重绘
-                    applyFilterToMap();
+                    vectorLayer.changed();
+                    extraVectorLayer.changed();
                 });
             });
         }
 
-        // 执行筛选并更新图层
-        function applyFilterToMap() {
-            [vectorLayer, extraVectorLayer].forEach(layer => {
-                const source = layer.getSource();
-                const features = source.getFeatures();
-                if (!features.length) return;
-
-                const toAdd = [];
-                const toRemove = [];
-
-                features.forEach(f => {
-                    // 必须同时满足：目录树勾选了，且线型筛选勾选了
-                    const folderVisible = KmlFolderTree.isFeatureVisible(f);
-                    const typeVisible = checkFeatureVisible(f);
-                    
-                    if (folderVisible && typeVisible) {
-                        toAdd.push(f);
-                    } else {
-                        toRemove.push(f);
-                    }
-                });
-
-                // 注意：这里只是将不符合的移出，符合的重新加回去，避免重复添加
-                if (toRemove.length) source.removeFeatures(toRemove);
-                if (toAdd.length) source.addFeatures(toAdd);
-            });
-        }
+        // 折叠树状 UI
+        window.toggleFilterGroup = function(id, row) {
+            const ul = document.getElementById(id);
+            const caret = row.querySelector('.ft-caret');
+            if (ul.style.display === 'none') {
+                ul.style.display = '';
+                caret.textContent = '▼';
+            } else {
+                ul.style.display = 'none';
+                caret.textContent = '▶';
+            }
+        };
         // ==========================================
 
         ol.proj.useGeographic();
@@ -363,11 +356,12 @@
         const progressFill = document.getElementById('progress-fill');
         const progressTip = document.getElementById('progress-tip');
 
-        const vectorLayer = new ol.layer.Vector({ source: new ol.source.Vector() });
+        // 注意：将 style 设为 filterStyle
+        const vectorLayer = new ol.layer.Vector({ source: new ol.source.Vector(), style: filterStyle });
         map.addLayer(vectorLayer);
         vectorLayer.setZIndex(2);
 
-        const extraVectorLayer = new ol.layer.Vector({ source: new ol.source.Vector(), declutter: false });
+        const extraVectorLayer = new ol.layer.Vector({ source: new ol.source.Vector(), declutter: false, style: filterStyle });
         map.addLayer(extraVectorLayer);
         extraVectorLayer.setZIndex(3); 
 
@@ -461,9 +455,8 @@
 
                 batch.forEach(function(f) { f.__loaded = true; });
                 
-                // 首次加载时，同时检查目录树和线型筛选
-                const validFeatures = batch.filter(f => KmlFolderTree.isFeatureVisible(f) && checkFeatureVisible(f));
-                targetLayer.getSource().addFeatures(validFeatures);
+                // 注意：这里一次性全加进去，显示逻辑交给 filterStyle 处理
+                targetLayer.getSource().addFeatures(batch);
                 addedCount = end;
 
                 if (!isExtra) {
