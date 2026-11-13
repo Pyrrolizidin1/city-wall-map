@@ -55,10 +55,17 @@
         .measure-delete-btn { background: #ff4d4f; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; font-size: 12px; line-height: 1; transition: background 0.2s; }
         .measure-delete-btn:hover { background: #ff7875; }
         
-        .locate-icon { width: 14px; height: 14px; background: #1890ff; border: 1.5px solid #fff; border-radius: 50%; box-shadow: 0 0 4px rgba(0,0,0,0.3); display: inline-block; position: relative; }
-        .locate-icon::after { content: ''; position: absolute; top: -4px; left: 2px; border-left: 3px solid transparent; border-right: 3px solid transparent; border-bottom: 5px solid #1890ff; }
+        /* 定位按钮内的自定义图标 */
+        .locate-icon {
+            width: 14px; height: 14px; background: #1890ff; border: 1.5px solid #fff; border-radius: 50%;
+            box-shadow: 0 0 4px rgba(0,0,0,0.3); display: inline-block; position: relative;
+        }
+        .locate-icon::after {
+            content: ''; position: absolute; top: -4px; left: 2px;
+            border-left: 3px solid transparent; border-right: 3px solid transparent; border-bottom: 5px solid #1890ff;
+        }
 
-        /* 通用树状样式 */
+        /* 图层目录（KMZ 文件夹结构） */
         .folder-tree { flex: 1; overflow-y: auto; padding: 6px 8px 12px; }
         .folder-tree::-webkit-scrollbar { width: 6px; }
         .folder-tree::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
@@ -117,11 +124,6 @@
             </div>
             <div id="folder-tree-main"><div class="ft-empty">城址目录加载中...</div></div>
             <div id="folder-tree-extra"><div class="ft-empty">轮廓未定目录加载中...</div></div>
-            
-            <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
-                <div class="ft-header"><span>线型筛选</span></div>
-                <ul class="ft-list" id="type-filter-list"></ul>
-            </div>
         </div>
         <div class="search-results" id="search-results" style="display: none;"></div>
     </div>
@@ -142,111 +144,6 @@
         const KML_FILE = '城址.kmz';
         const EXTRA_FILE = '轮廓未定.kmz'; 
         const AMAP_KEY = 'b9989c3b248bd63e3358e0d92dc122f7'; 
-
-        // ==========================================
-        // 线型筛选逻辑
-        // ==========================================
-        const ALL_TYPES = ['Co', 'Ct', 'Bo', 'Bt', 'Po', 'Pt', 'Go', 'Gt', 'Yx', 'Oo'];
-        const TYPE_GROUPS = {
-            '墙体': ['Co', 'Ct'],
-            '环壕水险': ['Bo', 'Bt'],
-            '低级工事': ['Po', 'Pt'],
-            '护堤': ['Go', 'Gt'],
-            '遗址区': ['Yx'],
-            '临崖山险': ['Oo'],
-            '其他': []
-        };
-        const selectedTypes = new Set(ALL_TYPES.concat(['__OTHER__']));
-
-        function getFilterKeys(feature) {
-            const desc = feature.get('description') || feature.get('Description') || '';
-            const m = desc.match(/\*线型[:：]\s*([A-Za-z]+)/);
-            if (m && ALL_TYPES.includes(m[1])) return m[1];
-            return '__OTHER__';
-        }
-
-        // 核心：树状 UI 生成
-        function renderFilterUI() {
-            const list = document.getElementById('type-filter-list');
-            let html = '';
-            for (const [groupName, types] of Object.entries(TYPE_GROUPS)) {
-                if (groupName === '其他') {
-                    html += `<li class="ft-row" style="margin-top: 4px;">
-                        <span class="ft-caret" style="visibility:hidden;">▶</span>
-                        <input type="checkbox" class="type-cb" value="__OTHER__" checked>
-                        <span class="ft-name">其他 (未识别)</span>
-                    </li>`;
-                } else {
-                    const groupId = 'group_' + groupName;
-                    html += `<li>
-                        <div class="ft-row ft-row-expandable" onclick="toggleFilterGroup('${groupId}', this)">
-                            <button class="ft-caret">▼</button>
-                            <span class="ft-name" style="cursor:pointer;">${groupName}</span>
-                        </div>
-                        <ul class="ft-list" id="${groupId}">`;
-                    types.forEach(t => {
-                        html += `<li class="ft-row">
-                            <span class="ft-caret" style="visibility:hidden;">▶</span>
-                            <input type="checkbox" class="type-cb" value="${t}" checked>
-                            <span class="ft-name">${t}</span>
-                        </li>`;
-                    });
-                    html += `</ul></li>`;
-                }
-            }
-            list.innerHTML = html;
-
-            document.querySelectorAll('.type-cb').forEach(cb => {
-                cb.addEventListener('change', function() {
-                    if (this.checked) selectedTypes.add(this.value);
-                    else selectedTypes.delete(this.value);
-                    
-                    // 触发重载
-                    applyFilterToMap();
-                });
-            });
-        }
-
-        window.toggleFilterGroup = function(id, row) {
-            const ul = document.getElementById(id);
-            const caret = row.querySelector('.ft-caret');
-            if (ul.style.display === 'none') {
-                ul.style.display = '';
-                caret.textContent = '▼';
-            } else {
-                ul.style.display = 'none';
-                caret.textContent = '▶';
-            }
-        };
-
-        // 真正的过滤执行（这里我们用增删法，因为你的目录树插件也是用增删法，这样不会冲突）
-        function applyFilterToMap() {
-            [vectorLayer, extraVectorLayer].forEach(layer => {
-                const source = layer.getSource();
-                const features = source.getFeatures();
-                if (!features.length) return;
-
-                const toAdd = [];
-                const toRemove = [];
-
-                features.forEach(f => {
-                    // 必须同时满足：目录树勾选了，且线型筛选勾选了
-                    const folderVisible = KmlFolderTree.isFeatureVisible(f);
-                    const type = getFilterKeys(f);
-                    const typeVisible = selectedTypes.has(type);
-                    
-                    if (folderVisible && typeVisible) {
-                        toAdd.push(f);
-                    } else {
-                        toRemove.push(f);
-                    }
-                });
-
-                if (toRemove.length) source.removeFeatures(toRemove);
-                if (toAdd.length) source.addFeatures(toAdd);
-            });
-        }
-        // ==========================================
 
         ol.proj.useGeographic();
         const a = 6378245.0;
@@ -329,11 +226,13 @@
             view: new ol.View({ center: fromLonLat(108.94, 34.34), zoom: 10 })
         });
 
+        // 禁用移动端双指旋转
         map.getInteractions().forEach(function(interaction) {
             if (interaction instanceof ol.interaction.DragRotateAndZoom) {
                 interaction.setActive(false);
             }
         });
+        // 锁定地图旋转角度为 0
         map.getView().on('change:rotation', function() {
             if (map.getView().getRotation() !== 0) map.getView().setRotation(0);
         });
@@ -360,7 +259,9 @@
         map.addLayer(vectorLayer);
         vectorLayer.setZIndex(2);
 
-        const extraVectorLayer = new ol.layer.Vector({ source: new ol.source.Vector(), declutter: false });
+        const extraVectorLayer = new ol.layer.Vector({ 
+            source: new ol.source.Vector(), declutter: false 
+        });
         map.addLayer(extraVectorLayer);
         extraVectorLayer.setZIndex(3); 
 
@@ -397,10 +298,10 @@
 
         function parseKMLAndAddFeatures(kmlContent, targetLayer, isExtra = false) {
             const format = new ol.format.KML({ extractStyles: true });
+            // 先解析文件夹结构（会给每个 Placemark 写入唯一 id），再交给 OpenLayers 读取要素
             const parsed = KmlFolderTree.parse(kmlContent, isExtra ? 'e' : 'm');
             const features = format.readFeatures(parsed.doc, { featureProjection: 'EPSG:4326' });
             const treeContainer = document.getElementById(isExtra ? 'folder-tree-extra' : 'folder-tree-main');
-            
             if (features.length === 0) {
                 showFolderStatus(treeContainer, '没有可显示的要素');
                 if (!isExtra) {
@@ -453,15 +354,7 @@
                 });
 
                 batch.forEach(function(f) { f.__loaded = true; });
-                
-                // 加载时只把通过了目录树和线型筛选的加进去
-                const validFeatures = batch.filter(f => {
-                    const folderVisible = KmlFolderTree.isFeatureVisible(f);
-                    const type = getFilterKeys(f);
-                    return folderVisible && selectedTypes.has(type);
-                });
-                
-                targetLayer.getSource().addFeatures(validFeatures);
+                targetLayer.getSource().addFeatures(batch.filter(KmlFolderTree.isFeatureVisible));
                 addedCount = end;
 
                 if (!isExtra) {
@@ -484,6 +377,7 @@
                             setTimeout(() => { statusDiv.style.display = 'none'; }, 500);
                         }, 5000);
 
+                        // 改动 1：加载完成后，初始视图放在中国范围
                         const chinaExtent = [73.0, 3.0, 135.0, 54.0];
                         map.getView().fit(chinaExtent, { padding: [20, 20, 20, 20], duration: 1000 });
                     }
@@ -579,6 +473,7 @@
             }
         }
 
+        // 改动 2 & 3：面积阈值改为10万，并增加中心点坐标
         function getFeatureMetrics(geometry) {
             if (!geometry) return '';
             function formatLength(geom) {
@@ -854,6 +749,7 @@
             popup.setPosition(coord);
         }
 
+        // 移动端扩大点击容差
         map.on('click', function(event) {
             if (isMeasuring) return;
             let featureFound = false;
@@ -866,7 +762,7 @@
                     featureFound = true;
                     return true;
                 }
-            }, { hitTolerance: 15 });
+            }, { hitTolerance: 15 }); // 15像素容差
             if (!featureFound) popup.setPosition(undefined);
         });
 
@@ -886,7 +782,7 @@
             if (event.dragging) return;
             const feature = map.forEachFeatureAtPixel(event.pixel, function(feat, layer) {
                 if (layer === vectorLayer || layer === extraVectorLayer) return feat;
-            }, { hitTolerance: 15 });
+            }, { hitTolerance: 15 }); // 移动端高亮容差
 
             if (feature !== lastHighlightedFeature) {
                 highlightOverlay.getSource().clear();
@@ -957,6 +853,7 @@
         let activeTooltip = new ol.Overlay({ element: activeTooltipElement, offset: [0, -15], positioning: 'bottom-center', stopEvent: false });
         map.addOverlay(activeTooltip);
 
+        // 测距面积阈值同步改为10万
         function formatLength(line) {
             const length = ol.sphere.getLength(line, {projection: 'EPSG:4326'});
             return length > 1000 ? (Math.round(length / 1000 * 100) / 100) + ' 公里' : (Math.round(length * 100) / 100) + ' 米';
@@ -1055,6 +952,7 @@
             resetButtons(); this.classList.add('active'); addMeasureInteraction('area');
         });
 
+        // 持续定位与追踪功能
         const locateBtn = document.getElementById('locate-btn');
         const locationSource = new ol.source.Vector();
         const locationLayer = new ol.layer.Vector({
@@ -1115,7 +1013,7 @@
                 if (typeof NEED_GCJ02 !== 'undefined' && NEED_GCJ02) {
                     finalPos = wgs84ToGcj02(pos[0], pos[1]);
                 } else {
-                    finalPos = wgs84ToGcj02(pos[0], pos[1]);
+                    finalPos = wgs84ToGcj02(pos[0], pos[1]); // 高德页必然要转
                 }
 
                 locationSource.clear();
@@ -1153,8 +1051,6 @@
             });
         });
 
-        // 启动
-        renderFilterUI();
         loadMainData();
         loadExtraData();
     </script>
