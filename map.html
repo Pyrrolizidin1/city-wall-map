@@ -7,12 +7,12 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css" />
     <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="folder-tree.js?v=2"></script>
+    <script src="folder-tree.js?v=4"></script>
     <script src="line-filter.js?v=2"></script>
     <link rel="stylesheet" href="design.css">
     <link rel="stylesheet" href="map-ui.css?v=11">
     <script src="map-ui.js?v=8"></script>
-    <script src="map-data.js"></script>
+    <script src="map-data.js?v=3"></script>
 </head>
 <body class="map-page" data-basemap="standard">
     <div id="map" aria-label="城址地图"></div>
@@ -433,15 +433,15 @@
                          </button>`;
             }
 
-            const localMatches = featureSearchIndex.filter(item => item.searchText.includes(keyword.toLowerCase()));
-            const displayLocal = localMatches.slice(0, 30); 
-
-            if (!isCoordSearch) { 
+            if (!isCoordSearch) {
+                const query = keyword.toLowerCase();
+                const localMatches = featureSearchIndex.filter(item => item.searchText.includes(query));
+                const displayLocal = localMatches.slice(0, 30);
                 html += `<div class="result-section-title">本地要素 (${localMatches.length})</div>`;
                 if (displayLocal.length > 0) {
-                    displayLocal.forEach((item, index) => {
+                    displayLocal.forEach(item => {
                         let snippet = item.desc.replace(/[\n\r]/g, ' ').substring(0, 40) + '...';
-                        html += `<button type="button" class="result-item local-result" data-index="${featureSearchIndex.indexOf(item)}">
+                        html += `<button type="button" class="result-item local-result" data-index="${item.index}">
                                      <span class="title">${MapUI.escapeHTML(item.name)}</span>
                                      <span class="desc">${MapUI.escapeHTML(snippet)}</span>
                                  </button>`;
@@ -541,9 +541,9 @@
             let featureFound = false;
             map.forEachFeatureAtPixel(event.pixel, function(feature, layer) {
                 if (isMapFeatureVisible(feature, layer)) {
-                    const idx = featureSearchIndex.findIndex(item => item.feature === feature);
-                    let name = idx !== -1 ? featureSearchIndex[idx].name : (feature.get('name') || feature.get('Name') || '（无标题）');
-                    let description = idx !== -1 ? featureSearchIndex[idx].desc : (feature.get('description') || feature.get('Description') || '');
+                    const record = featureRecords.get(feature);
+                    const name = record?.name ?? (feature.get('name') || feature.get('Name') || '（无标题）');
+                    const description = record?.desc ?? (feature.get('description') || feature.get('Description') || '');
                     showPopup(name, description, event.coordinate, feature.getGeometry(), feature);
                     featureFound = true;
                     return true;

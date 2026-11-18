@@ -38,8 +38,14 @@
         }
 
         async function addFeatures(kml, { layer, visibility, isExtra, container }) {
+            const doc = new DOMParser().parseFromString(kml, 'application/xml');
+            if (!isExtra) await delay(0);
             // 目录解析会为 Placemark 写入稳定 ID，OpenLayers 用同一份文档读取要素。
-            const parsed = KmlFolderTree.parse(kml, isExtra ? 'e' : 'm');
+            const parsed = KmlFolderTree.parse(doc, isExtra ? 'e' : 'm');
+            if (!isExtra) {
+                status.textContent = '正在读取地图要素…';
+                await delay(0);
+            }
             const format = new ol.format.KML({ extractStyles: true });
             const features = format.readFeatures(parsed.doc, { featureProjection: 'EPSG:4326' });
             if (!features.length) {
@@ -67,20 +73,22 @@
                 showFolderStatus(container, '目录解析失败，已显示全部要素');
             }
 
-            await delay(50);
+            await delay(0);
             for (let start = 0; start < features.length; start += batchSize) {
                 const end = Math.min(start + batchSize, features.length);
                 const batch = features.slice(start, end);
                 for (const feature of batch) {
-                    const geometry = feature.getGeometry();
-                    if (geometry) geometry.setCoordinates(transformCoordinates(geometry.getCoordinates()));
+                    if (transformCoordinates) {
+                        const geometry = feature.getGeometry();
+                        if (geometry) geometry.setCoordinates(transformCoordinates(geometry.getCoordinates()));
+                    }
 
                     const name = feature.get('name') || feature.get('Name') || '未命名';
                     const desc = feature.get('description') || feature.get('Description') || '';
                     const searchText = (name + ' ' + desc).toLowerCase();
                     visibility.prepare(feature, isExtra ? null : getLineOptions(desc));
 
-                    const record = { feature, name, desc, searchText, layer };
+                    const record = { index: featureSearchIndex.length, feature, name, desc, searchText, layer };
                     featureSearchIndex.push(record);
                     featureRecords.set(feature, record);
 
@@ -97,7 +105,7 @@
                     status.textContent = `已加载城址 ${end} / ${features.length}`;
                     progressTip.style.display = 'none';
                 }
-                if (end < features.length) await delay(10);
+                if (end < features.length) await delay(0);
             }
             return features.length;
         }
@@ -129,7 +137,10 @@
                 }
 
                 const kml = await readKml(buffer);
-                if (!isExtra) status.textContent = '正在解析…';
+                if (!isExtra) {
+                    status.textContent = '正在解析…';
+                    await delay(0);
+                }
                 const total = await addFeatures(kml, config);
 
                 if (!isExtra) {

@@ -1,23 +1,21 @@
 // KMZ/KML 文件夹目录树：解析 KML 里的 <Folder> 层级，在侧栏渲染可勾选的目录，并控制要素显示。
 // map.html 与 map-satellite.html 共用。
 (function () {
-    function childElements(el, localName) {
-        const out = [];
+    function firstChildNamed(el, localName) {
         for (let c = el.firstElementChild; c; c = c.nextElementSibling) {
-            if (c.localName === localName) out.push(c);
+            if (c.localName === localName) return c;
         }
-        return out;
+        return null;
     }
 
     function folderName(el) {
-        const n = childElements(el, 'name')[0];
-        return n ? n.textContent.trim() : '未命名';
+        return firstChildNamed(el, 'name')?.textContent.trim() ?? '未命名';
     }
 
-    // 解析 KML 文本，返回 { doc, root, nodeById }。
+    // 接收 KML 文本或已解析的 XML 文档，返回 { doc, root, nodeById }。
     // 会给每个 Placemark 写入唯一 id（prefix + 序号），OpenLayers 读出的要素 getId() 即可对应到文件夹节点。
-    function parse(kmlText, prefix) {
-        const doc = new DOMParser().parseFromString(kmlText, 'application/xml');
+    function parse(input, prefix) {
+        const doc = typeof input === 'string' ? new DOMParser().parseFromString(input, 'application/xml') : input;
         if (doc.getElementsByTagNameNS('*', 'parsererror').length) {
             throw new Error('KML XML 格式无效');
         }
@@ -35,7 +33,7 @@
                     const id = prefix + (seq++);
                     c.setAttribute('id', id);
                     node.ids.push(id);
-                    const lineType = c.querySelector('description')?.textContent.match(/(?:^|\n)\s*\*\s*线型\s*[：:]\s*(\w+)/i)?.[1]?.toLowerCase();
+                    const lineType = firstChildNamed(c, 'description')?.textContent.match(/(?:^|\n)\s*\*\s*线型\s*[：:]\s*(\w+)/i)?.[1]?.toLowerCase();
                     node.records.push({ id, name: folderName(c), lineType });
                     nodeById.set(id, node);
                 }
@@ -45,7 +43,7 @@
         }
 
         const kml = doc.documentElement;
-        const top = childElements(kml, 'Document')[0] || childElements(kml, 'Folder')[0] || kml;
+        const top = firstChildNamed(kml, 'Document') || firstChildNamed(kml, 'Folder') || kml;
         let root = build(top, null);
         // 跳过只有一层包裹的文件夹（如 Document「城址.kmz」→ Folder「城址」）
         while (root.ids.length === 0 && root.children.length === 1) {
