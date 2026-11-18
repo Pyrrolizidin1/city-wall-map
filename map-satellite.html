@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="design.css">
     <link rel="stylesheet" href="map-ui.css?v=11">
     <script src="map-ui.js?v=8"></script>
+    <script src="map-data.js"></script>
 </head>
 <body class="map-page" data-basemap="satellite">
     <div id="map" aria-label="城址地图"></div>
@@ -121,8 +122,6 @@
     </div>
 
     <script>
-        const KML_FILE = '城址.kmz';
-        const EXTRA_FILE = '轮廓未定.kmz';
         const NEED_GCJ02 = false;
 
         ol.proj.useGeographic();
@@ -211,10 +210,6 @@
         });
         map.addLayer(searchMarkerLayer);
 
-        const statusDiv = document.getElementById('status');
-        const progressBar = document.getElementById('progress-bar');
-        const progressFill = document.getElementById('progress-fill');
-        const progressTip = document.getElementById('progress-tip');
 
         const vectorLayer = new ol.layer.Vector({ source: new ol.source.Vector() });
         map.addLayer(vectorLayer);
@@ -253,196 +248,6 @@
 
         const featureSearchIndex = [];
 
-        function showFolderStatus(container, message) {
-            const status = document.createElement('div');
-            status.className = 'ft-empty';
-            status.textContent = message;
-            container.replaceChildren(status);
-        }
-
-        function parseKMLAndAddFeatures(kmlContent, targetLayer, isExtra = false) {
-            const format = new ol.format.KML({ extractStyles: true });
-            // 先解析文件夹结构（会给每个 Placemark 写入唯一 id），再交给 OpenLayers 读取要素
-            const parsed = KmlFolderTree.parse(kmlContent, isExtra ? 'e' : 'm');
-            const features = format.readFeatures(parsed.doc, { featureProjection: 'EPSG:4326' });
-            const treeContainer = document.getElementById(isExtra ? 'folder-tree-extra' : 'folder-tree-main');
-            if (features.length === 0) {
-                showFolderStatus(treeContainer, '没有可显示的要素');
-                if (!isExtra) {
-                    statusDiv.innerText = '城址文件中没有可显示的要素';
-                    progressBar.style.display = 'none';
-                    progressTip.style.display = 'none';
-                }
-                return;
-            }
-            const matched = KmlFolderTree.attachFeatures(parsed, features);
-            if (matched === features.length) {
-                treeContainer.replaceChildren();
-                const readyFeatures = targetLayer.getSource();
-                const tree = KmlFolderTree.render(treeContainer, parsed.root, {
-                    expanded: !isExtra,
-                    rootLabel: isExtra ? '轮廓未定点位' : '城址线型数据',
-                    onFeature: id => openFeature(readyFeatures.getFeatureById(id)),
-                    onLocate: id => {
-                        const geometry = readyFeatures.getFeatureById(id)?.getGeometry();
-                        if (geometry) mapUI.locate(ol.extent.getCenter(geometry.getExtent()), geometry);
-                    },
-                    onChange: () => redrawFeatures(targetLayer)
-                });
-                mapUI.registerTree(isExtra ? 'extra' : 'main', tree);
-            } else {
-                console.warn(`目录匹配不完整（${matched}/${features.length}），已跳过目录树`);
-                showFolderStatus(treeContainer, '目录解析失败，已显示全部要素');
-            }
-
-            const visibility = isExtra ? extraVisibility : mainVisibility;
-            const totalCount = features.length;
-            let addedCount = 0;
-            const batchSize = 2000;
-
-            function addBatch() {
-                const end = Math.min(addedCount + batchSize, totalCount);
-                const batch = features.slice(addedCount, end);
-
-                batch.forEach(function(feature) {
-                    const geom = feature.getGeometry();
-                    if (geom) geom.setCoordinates(convertCoordsRecursive(geom.getCoordinates()));
-
-                    const name = feature.get('name') || feature.get('Name') || '未命名';
-                    const desc = feature.get('description') || feature.get('Description') || '';
-                    const searchText = (name + ' ' + desc).toLowerCase();
-                    visibility.prepare(feature, isExtra ? null : getLineOptions(desc));
-
-                    const record = { feature, name, desc, searchText, layer: targetLayer };
-                    featureSearchIndex.push(record);
-                    featureRecords.set(feature, record);
-
-                    if (isExtra) {
-                        feature.unset('name');
-                        feature.unset('Name');
-                        feature.unset('description');
-                        feature.unset('Description');
-                    }
-                });
-
-                targetLayer.getSource().addFeatures(batch);
-                mapUI.restoreDetail(batch, feature => showFeature(feature, false));
-                addedCount = end;
-
-                if (!isExtra) {
-                    const percent = Math.round(55 + (addedCount / totalCount) * 45);
-                    progressFill.style.width = percent + '%';
-                    progressFill.innerText = percent + '%';
-                    statusDiv.innerText = `已加载城址 ${addedCount} / ${totalCount}`;
-                    if (percent > 50) progressTip.style.display = 'none';
-                }
-
-                if (addedCount < totalCount) {
-                    setTimeout(addBatch, 10);
-                } else {
-                    if (!isExtra) {
-                        statusDiv.innerText = `已加载 ${totalCount.toLocaleString('zh-CN')} 个城址要素`;
-                        progressBar.style.display = 'none';
-                        
-                        setTimeout(() => { 
-                            statusDiv.style.opacity = '0'; 
-                            setTimeout(() => { statusDiv.style.display = 'none'; }, 500);
-                        }, 5000);
-
-                    }
-                }
-            }
-            setTimeout(addBatch, 50);
-        }
-
-        let fakeProgressInterval;
-        function startFakeProgress() {
-            let currentPercent = 5;
-            fakeProgressInterval = setInterval(() => {
-                if (currentPercent < 50) {
-                    currentPercent += 0.5;
-                    progressFill.style.width = currentPercent + '%';
-                    progressFill.innerText = Math.round(currentPercent) + '%';
-                }
-            }, 200);
-        }
-
-        async function loadMainData() {
-            try {
-                progressBar.style.display = 'block';
-                progressTip.style.display = 'flex';
-                progressTip.innerText = '初次加载速度可能较慢，请耐心等待';
-                progressFill.style.width = '5%';
-                progressFill.innerText = '5%';
-                statusDiv.innerText = '正在连接服务器...';
-                startFakeProgress();
-
-                const response = await fetch(KML_FILE);
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                
-                statusDiv.innerText = '正在下载城址数据...';
-                const reader = response.body.getReader();
-                const chunks = [];
-                while (true) {
-                    const {done, value} = await reader.read();
-                    if (done) break;
-                    chunks.push(value);
-                }
-                
-                clearInterval(fakeProgressInterval);
-                progressFill.style.width = '55%';
-                progressFill.innerText = '55%';
-                statusDiv.innerText = '正在解压数据...';
-
-                const arrayBuffer = await new Blob(chunks).arrayBuffer();
-                const isKMZ = new Uint8Array(arrayBuffer)[0] === 0x50;
-                if (isKMZ) {
-                    const zip = await JSZip.loadAsync(arrayBuffer);
-                    let kmlFile = null;
-                    zip.forEach(function(path, file) {
-                        if (path.toLowerCase().endsWith('.kml')) kmlFile = file;
-                    });
-                    if (!kmlFile) throw new Error('KMZ 中没有 KML 文件');
-                    statusDiv.innerText = '正在解析...';
-                    parseKMLAndAddFeatures(await kmlFile.async('text'), vectorLayer, false);
-                } else {
-                    statusDiv.innerText = '正在解析...';
-                    parseKMLAndAddFeatures(new TextDecoder('utf-8').decode(arrayBuffer), vectorLayer, false);
-                }
-            } catch (error) {
-                clearInterval(fakeProgressInterval);
-                statusDiv.innerText = `❌ 城址加载失败: ${error.message}`;
-                progressBar.style.display = 'none';
-                progressTip.style.display = 'none';
-                showFolderStatus(document.getElementById('folder-tree-main'), '城址目录加载失败');
-            }
-        }
-
-        async function loadExtraData() {
-            try {
-                const response = await fetch(EXTRA_FILE);
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const arrayBuffer = await response.arrayBuffer();
-                const isKMZ = new Uint8Array(arrayBuffer)[0] === 0x50;
-
-                if (isKMZ) {
-                    const zip = await JSZip.loadAsync(arrayBuffer);
-                    let kmlFile = null;
-                    zip.forEach(function(path, file) {
-                        if (path.toLowerCase().endsWith('.kml')) kmlFile = file;
-                    });
-                    if (!kmlFile) throw new Error('KMZ 中没有 KML 文件');
-                    parseKMLAndAddFeatures(await kmlFile.async('text'), extraVectorLayer, true);
-                } else {
-                    parseKMLAndAddFeatures(new TextDecoder('utf-8').decode(arrayBuffer), extraVectorLayer, true);
-                }
-            } catch (error) {
-                console.warn(`⚠️ 额外文件加载失败: ${error.message}`);
-                showFolderStatus(document.getElementById('folder-tree-extra'), '轮廓未定目录加载失败');
-            }
-        }
-
-        // 改动 2 & 3：面积阈值改为10万，并增加中心点坐标
         function getFeatureMetrics(geometry) {
             if (!geometry) return '';
             function formatLength(geom) {
@@ -652,10 +457,6 @@
 
         function showPopup(title, content, coord, geometry, feature) {
             mapUI.showDetail(title, geometry ? getFeatureMetrics(geometry) : '', content, coord, feature);
-        }
-
-        function openFeature(feature) {
-            showFeature(feature, true);
         }
 
         function showFeature(feature, locate) {
@@ -1034,8 +835,13 @@
             });
         });
 
-        loadMainData();
-        loadExtraData();
+        MapData.load({
+            main: { layer: vectorLayer, visibility: mainVisibility },
+            extra: { layer: extraVectorLayer, visibility: extraVisibility },
+            mapUI, getLineOptions, featureSearchIndex, featureRecords,
+            transformCoordinates: convertCoordsRecursive,
+            showFeature, redrawFeatures
+        });
     </script>
 </body>
 </html>
