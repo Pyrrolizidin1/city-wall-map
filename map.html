@@ -12,7 +12,8 @@
     <link rel="stylesheet" href="design.css">
     <link rel="stylesheet" href="map-ui.css?v=11">
     <script src="map-ui.js?v=8"></script>
-    <script src="map-data.js?v=3"></script>
+    <script src="map-data.js?v=4"></script>
+    <script src="map-interactions.js?v=1"></script>
 </head>
 <body class="map-page" data-basemap="standard">
     <div id="map" aria-label="城址地图"></div>
@@ -238,72 +239,23 @@
         const mainVisibility = LineFilter.createVisibility(vectorLayer);
         const extraVisibility = LineFilter.createVisibility(extraVectorLayer);
 
-        function redrawFeatures(layer) {
-            if (highlightOverlay && lastHighlightedFeature) {
-                lastHighlightedFeature = null;
-                highlightOverlay.getSource().clear();
-                map.getTargetElement().style.cursor = '';
-            }
-            mapUI.syncSelection();
-            layer.changed();
-        }
-
+        const main = { layer: vectorLayer, visibility: mainVisibility };
+        const extra = { layer: extraVectorLayer, visibility: extraVisibility };
         const featureRecords = new WeakMap();
-        let lastHighlightedFeature = null;
-        let highlightOverlay;
-        const mapUI = MapUI.create(map, {
+        const featureSearchIndex = [];
+        let isMeasuring = false;
+        const { ui: mapUI, showFeature, locateFeature, redrawFeatures } = MapInteractions.create(map, {
+            layers: [main, extra],
+            featureRecords,
             fromWgs84: coord => wgs84ToGcj02(...coord),
             toWgs84: coord => gcj02ToWgs84(...coord),
-            isFeatureVisible: feature => isMapFeatureVisible(feature, featureRecords.get(feature)?.layer)
+            isMeasuring: () => isMeasuring
         });
         const getLineOptions = LineFilter.create(
             document.getElementById('line-filter'),
             () => redrawFeatures(vectorLayer)
         );
         mapUI.registerTree('line', getLineOptions.tree);
-
-        const featureSearchIndex = [];
-
-        function getFeatureMetrics(geometry) {
-            if (!geometry) return '';
-            function formatLength(geom) {
-                const length = ol.sphere.getLength(geom, {projection: 'EPSG:4326'});
-                return length > 1000 ? (length / 1000).toFixed(2) + ' 公里' : length.toFixed(2) + ' 米';
-            }
-            function formatArea(geom) {
-                const area = ol.sphere.getArea(geom, {projection: 'EPSG:4326'});
-                return area > 100000 ? (area / 1000000).toFixed(2) + ' 平方公里' : area.toFixed(2) + ' 平方米';
-            }
-            let result = '';
-            let centerCoord = null;
-
-            if (geometry instanceof ol.geom.Polygon) {
-                result = `周长：${formatLength(geometry.getLinearRing(0))} &nbsp;|&nbsp; 面积：${formatArea(geometry)}`;
-                centerCoord = geometry.getInteriorPoint().getCoordinates();
-            } else if (geometry instanceof ol.geom.LineString) {
-                const coords = geometry.getCoordinates();
-                const first = coords[0];
-                const last = coords[coords.length - 1];
-                const isClosed = Math.abs(first[0] - last[0]) < 1e-6 && Math.abs(first[1] - last[1]) < 1e-6;
-                if (isClosed) {
-                    const polyGeom = new ol.geom.Polygon([coords]);
-                    result = `周长：${formatLength(geometry)} &nbsp;|&nbsp; 面积：${formatArea(polyGeom)}`;
-                } else {
-                    result = `长度：${formatLength(geometry)}`;
-                }
-                centerCoord = geometry.getCoordinateAt(0.5);
-            }
-
-            if (result) {
-                let coordText = '';
-                if (centerCoord) {
-                    const wgsCoord = gcj02ToWgs84(centerCoord[0], centerCoord[1]);
-                    coordText = `<br>中心点：${wgsCoord[0].toFixed(5)}, ${wgsCoord[1].toFixed(5)}`;
-                }
-                return `<div style="font-size:12px; color:#666; margin-bottom:8px; padding-bottom:6px; border-bottom:1px dashed #eee;">${result}${coordText}</div>`;
-            }
-            return '';
-        }
 
         function downloadKML(feature) {
             const geom = feature.getGeometry();
@@ -461,7 +413,7 @@
                     const lat = parseFloat(this.getAttribute('data-lat'));
                     const gcjCoord = wgs84ToGcj02(lon, lat);
                     searchMarkerSource.addFeature(new ol.Feature({ geometry: new ol.geom.Point(gcjCoord) }));
-                    showPopup('坐标定位', `经度: ${lon}<br>纬度: ${lat}`, gcjCoord, null);
+                    mapUI.showDetail('坐标定位', '', `经度: ${lon}<br>纬度: ${lat}`, gcjCoord);
                     mapUI.locate(gcjCoord);
                 });
             });
@@ -469,7 +421,7 @@
             document.querySelectorAll('.local-result').forEach(el => {
                 el.addEventListener('click', function() {
                     const idx = parseInt(this.getAttribute('data-index'));
-                    showFeature(featureSearchIndex[idx]?.feature, true);
+                    showFeature(featureSearchIndex[idx]?.feature, { locate: true });
                 });
             });
 
@@ -497,7 +449,7 @@
                                     const address = this.getAttribute('data-address');
                                     const coord = [lng, lat]; 
                                     searchMarkerSource.addFeature(new ol.Feature({ geometry: new ol.geom.Point(coord) }));
-                                    showPopup(name, '高德地址：' + address, coord, null);
+                                    mapUI.showDetail(name, '', '高德地址：' + address, coord);
                                     mapUI.locate(coord, null, 14);
                                 });
                             });
@@ -514,83 +466,6 @@
                 if (container) container.innerHTML = '<div class="no-result" style="padding: 10px; color: red;">未配置高德API Key</div>';
             }
         }
-
-        function showPopup(title, content, coord, geometry, feature) {
-            mapUI.showDetail(title, geometry ? getFeatureMetrics(geometry) : '', content, coord, feature);
-        }
-
-        function showFeature(feature, locate) {
-            if (!feature) return;
-            const record = featureRecords.get(feature);
-            const geometry = feature.getGeometry();
-            if (!record || !geometry) return;
-            const coord = ol.extent.getCenter(geometry.getExtent());
-            showPopup(record.name, record.desc, coord, geometry, feature);
-            if (locate) mapUI.locate(coord, geometry);
-        }
-
-        function isMapFeatureVisible(feature, layer) {
-            if (layer === vectorLayer) return layer.getVisible() && mainVisibility.isVisible(feature);
-            if (layer === extraVectorLayer) return layer.getVisible() && extraVisibility.isVisible(feature);
-            return false;
-        }
-
-        // 移动端扩大点击容差
-        map.on('click', function(event) {
-            if (isMeasuring) return;
-            let featureFound = false;
-            map.forEachFeatureAtPixel(event.pixel, function(feature, layer) {
-                if (isMapFeatureVisible(feature, layer)) {
-                    const record = featureRecords.get(feature);
-                    const name = record?.name ?? (feature.get('name') || feature.get('Name') || '（无标题）');
-                    const description = record?.desc ?? (feature.get('description') || feature.get('Description') || '');
-                    showPopup(name, description, event.coordinate, feature.getGeometry(), feature);
-                    featureFound = true;
-                    return true;
-                }
-            }, { hitTolerance: 15 }); // 15像素容差
-            if (!featureFound) mapUI.handleMapBackgroundClick();
-        });
-
-        highlightOverlay = new ol.layer.Vector({
-            source: new ol.source.Vector(),
-            style: new ol.style.Style({
-                stroke: new ol.style.Stroke({ color: '#ffffff', width: 4, lineJoin: 'round', lineCap: 'round' }),
-                image: new ol.style.Circle({ radius: 10, fill: new ol.style.Fill({ color: 'rgba(255, 255, 255, 0.4)' }), stroke: new ol.style.Stroke({ color: '#ffffff', width: 3 }) })
-            }),
-            zIndex: 50
-        });
-        map.addLayer(highlightOverlay);
-
-        map.on('pointermove', function(event) {
-            if (isMeasuring) { map.getTargetElement().style.cursor = 'crosshair'; return; }
-            if (event.dragging) return;
-            const feature = map.forEachFeatureAtPixel(event.pixel, function(feat, layer) {
-                if (isMapFeatureVisible(feat, layer)) return feat;
-            }, { hitTolerance: 15 }); // 移动端高亮容差
-
-            if (feature !== lastHighlightedFeature) {
-                highlightOverlay.getSource().clear();
-                lastHighlightedFeature = feature;
-                if (feature) {
-                    const geom = feature.getGeometry();
-                    const highlightFeature = new ol.Feature(geom.clone());
-                    if (geom.getType() === 'Point') {
-                        const styles = feature.getStyleFunction()(feature, map.getView().getResolution());
-                        const origStyle = Array.isArray(styles) ? styles[0] : styles;
-                        if (origStyle && origStyle.getImage()) {
-                            highlightFeature.setStyle(new ol.style.Style({ image: origStyle.getImage().clone() }));
-                        } else {
-                            highlightFeature.setStyle(new ol.style.Style({ image: new ol.style.Circle({ radius: 6, fill: new ol.style.Fill({ color: '#fff' }) }) }));
-                        }
-                    }
-                    highlightOverlay.getSource().addFeature(highlightFeature);
-                    map.getTargetElement().style.cursor = 'pointer';
-                } else {
-                    map.getTargetElement().style.cursor = '';
-                }
-            }
-        });
 
         const toggleBtn = document.getElementById('light-toggle');
         let darkMode = false;
@@ -621,7 +496,7 @@
             toggleBtn.classList.toggle('active', darkMode);
         });
 
-        let isMeasuring = false; let currentMeasureType = null; let drawInteraction = null;
+        let currentMeasureType = null; let drawInteraction = null;
         const measureSource = new ol.source.Vector();
         const measureVector = new ol.layer.Vector({
             source: measureSource,
@@ -838,11 +713,10 @@
         });
 
         MapData.load({
-            main: { layer: vectorLayer, visibility: mainVisibility },
-            extra: { layer: extraVectorLayer, visibility: extraVisibility },
+            main, extra,
             mapUI, getLineOptions, featureSearchIndex, featureRecords,
             transformCoordinates: convertCoordsRecursive,
-            showFeature, redrawFeatures
+            showFeature, locateFeature, redrawFeatures
         });
     </script>
 </body>

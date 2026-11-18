@@ -21,7 +21,7 @@
         return kmlFile.async('text');
     }
 
-    function load({ main, extra, mapUI, getLineOptions, featureSearchIndex, featureRecords, transformCoordinates, showFeature, redrawFeatures }) {
+    function load({ main, extra, mapUI, getLineOptions, featureSearchIndex, featureRecords, transformCoordinates, showFeature, locateFeature, redrawFeatures }) {
         const status = document.getElementById('status');
         const progressBar = document.getElementById('progress-bar');
         const progressFill = document.getElementById('progress-fill');
@@ -60,11 +60,8 @@
                 const tree = KmlFolderTree.render(container, parsed.root, {
                     expanded: !isExtra,
                     rootLabel: isExtra ? '轮廓未定点位' : '城址线型数据',
-                    onFeature: id => showFeature(source.getFeatureById(id), true),
-                    onLocate: id => {
-                        const geometry = source.getFeatureById(id)?.getGeometry();
-                        if (geometry) mapUI.locate(ol.extent.getCenter(geometry.getExtent()), geometry);
-                    },
+                    onFeature: id => showFeature(source.getFeatureById(id), { locate: true }),
+                    onLocate: id => locateFeature(source.getFeatureById(id)),
                     onChange: () => redrawFeatures(layer)
                 });
                 mapUI.registerTree(isExtra ? 'extra' : 'main', tree);
@@ -98,7 +95,7 @@
                 }
 
                 source.addFeatures(batch);
-                mapUI.restoreDetail(batch, feature => showFeature(feature, false));
+                mapUI.restoreDetail(batch, showFeature);
 
                 if (!isExtra) {
                     setProgress(Math.round(55 + end / features.length * 45));
