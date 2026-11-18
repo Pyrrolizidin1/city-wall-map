@@ -31,8 +31,10 @@
         }
         const categories = groups.map(([name, keys]) => createNode(name, keys.map(createOption)));
         categories.push(createOption(other));
-        KmlFolderTree.render(container, createNode('筛选', categories), { expanded: true, onChange });
-        return description => getFilterKeys(description).map(key => options.get(key) || options.get(other));
+        const tree = KmlFolderTree.render(container, createNode('筛选', categories), { showRoot: false, onChange });
+        const getOptions = description => getFilterKeys(description).map(key => options.get(key) || options.get(other));
+        getOptions.tree = tree;
+        return getOptions;
     }
 
     function createVisibility(layer) {
