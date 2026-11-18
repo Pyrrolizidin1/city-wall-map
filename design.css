@@ -1,0 +1,40 @@
+:root {
+    --font-ui: system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+    --primary: #185abc;
+    --secondary: #516175;
+    --heading: #172435;
+    --text: #243246;
+    --muted: #586575;
+    --surface: #fff;
+    --background: #f1f4f7;
+    --border: #e1e7ed;
+    --selected: #edf4ff;
+    --selected-text: #164981;
+    --focus: #3973cb;
+    --error: #b3261e;
+    --font-small: 12px;
+    --font-body: 14px;
+    --font-panel: 18px;
+    --font-title: 24px;
+    --radius-row: 8px;
+    --radius-group: 10px;
+    --radius-card: 16px;
+    --radius-pill: 999px;
+    --sidebar-width: min(368px, 100vw);
+    --map-inset: 16px;
+    --shadow: 0 2px 10px #17243526;
+    --wall: #00b0b0;
+    --levee: #4caf84;
+    --cliff: #e07b3a;
+    --moat: #4080c0;
+    --minor: #e07b9a;
+    --ruins: #f5c542;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; font: var(--font-body)/1.5 var(--font-ui); color: var(--text); background: var(--background); }
+button, input { font: inherit; }
+button { color: inherit; cursor: pointer; }
+a { color: var(--primary); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+[hidden] { display: none !important; }
