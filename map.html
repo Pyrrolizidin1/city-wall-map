@@ -9,11 +9,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="folder-tree.js?v=4"></script>
     <script src="line-filter.js?v=2"></script>
-    <link rel="stylesheet" href="design.css">
-    <link rel="stylesheet" href="map-ui.css?v=11">
-    <script src="map-ui.js?v=8"></script>
+    <link rel="stylesheet" href="design.css?v=4">
+    <link rel="stylesheet" href="map-ui.css?v=14">
+    <script src="map-ui.js?v=9"></script>
     <script src="map-data.js?v=4"></script>
-    <script src="map-interactions.js?v=1"></script>
+    <script src="map-interactions.js?v=2"></script>
 </head>
 <body class="map-page" data-basemap="standard">
     <div id="map" aria-label="城址地图"></div>
@@ -64,7 +64,6 @@
 
     <section id="map-detail" aria-labelledby="detail-title" hidden>
         <header class="sidebar-header">
-            <button type="button" id="detail-back" class="icon-button" aria-label="返回" data-tooltip="返回" ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H4m7-7-7 7 7 7"/></svg></button>
             <h2 id="detail-title"></h2>
             <button type="button" id="detail-close" class="icon-button" aria-label="关闭详情" data-tooltip="关闭详情" ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
         </header>
@@ -413,7 +412,7 @@
                     const lat = parseFloat(this.getAttribute('data-lat'));
                     const gcjCoord = wgs84ToGcj02(lon, lat);
                     searchMarkerSource.addFeature(new ol.Feature({ geometry: new ol.geom.Point(gcjCoord) }));
-                    mapUI.showDetail('坐标定位', '', `经度: ${lon}<br>纬度: ${lat}`, gcjCoord);
+                    mapUI.showDetail('坐标定位', '', `经度: ${lon}<br>纬度: ${lat}`, gcjCoord, { fromSearch: true });
                     mapUI.locate(gcjCoord);
                 });
             });
@@ -421,7 +420,7 @@
             document.querySelectorAll('.local-result').forEach(el => {
                 el.addEventListener('click', function() {
                     const idx = parseInt(this.getAttribute('data-index'));
-                    showFeature(featureSearchIndex[idx]?.feature, { locate: true });
+                    showFeature(featureSearchIndex[idx]?.feature, { locate: true, fromSearch: true });
                 });
             });
 
@@ -449,7 +448,7 @@
                                     const address = this.getAttribute('data-address');
                                     const coord = [lng, lat]; 
                                     searchMarkerSource.addFeature(new ol.Feature({ geometry: new ol.geom.Point(coord) }));
-                                    mapUI.showDetail(name, '', '高德地址：' + address, coord);
+                                    mapUI.showDetail(name, '', '高德地址：' + address, coord, { fromSearch: true });
                                     mapUI.locate(coord, null, 14);
                                 });
                             });

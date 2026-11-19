@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="在卫星地图上查找城墙、环壕和历史城址，查阅起讫年代、测量数据与参考文献。">
     <title>城墙城址数据集</title>
-    <link rel="stylesheet" href="design.css?v=3">
-    <link rel="stylesheet" href="home.css?v=2">
+    <link rel="stylesheet" href="design.css?v=4">
+    <link rel="stylesheet" href="home.css?v=6">
 </head>
 <body class="home-page">
     <header class="home-header">
@@ -36,7 +36,7 @@
                 <a class="home-primary" href="map-satellite.html">进入卫星地图</a>
             </div>
             <figure class="home-preview">
-                <img src="map-preview.webp?v=2" width="1824" height="817" fetchpriority="high"
+                <img src="map-preview.webp?v=3" width="1824" height="817" fetchpriority="high"
                     alt="卫星地图预览，显示西安府城墙轮廓和城址详情窗口">
                 <figcaption>
                     <span>卫星地图预览 · 西安府城墙</span>
@@ -110,19 +110,29 @@
                 </div>
 
                 <div class="home-reading-grid">
-                    <div>
-                        <h3>收录范围与使用方法</h3>
-                        <p>本网站用于展示城市、聚落、军事据点的防御工事轮廓结构（以下统称“城址”），防御工事以城墙为主体，兼收山寨、圩子、宫墙、环壕、山险、水险，以及线性的长城、新建仿古城墙等等。年代跨度从约公元前 7000 年到现代，地域以中国及周边地区为主，其余国外部分也酌情绘制部分城墙轮廓（仅供参考）。目前已收入14,000 多条城址信息，但大部分区域仍有较多缺漏，因此本网站也将持续更新。</p>
-                        <p>地图左下角的「底图」可在高德地图与 Esri World Imagery 之间切换。高德地图可搜索国内地名；Esri可查看全球卫星影像图。两种底图均支持进行城址要素关键词查询和经纬度坐标搜索，也可以在地图上进行测距、测面积操作，测量操作生成的路径和多边形可下载为kml文件。</p>
-                        <p>城址要素分为两大类：已确认其精确或大致轮廓的路径要素（侧栏「城址线型数据」）和无法确定轮廓和精确位置的点要素（侧栏「轮廓未定点位」）。点击地图上的任意城址要素，会打开详情浮窗（手机上显示为底部面板），展示城址名称、起讫年代、别名、备注、参考文献等基本信息；同时显示该段城址的长度和中心坐标（闭合路径会显示面积）。</p>
-                    </div>
-                    <div>
-                        <h3>命名与年代规则</h3>
-                        <p>点击要素时显示的城址名称，不加括号者为该城址建成时的名称，如：“燕中都”“华州”“嘉定县”；加括号者为后人不知其原名的情况下称呼该城址的名称，如“（陶寺）”“（八里城）”“（古城子）”。</p>
-                        <p>城址的起讫，一般按该城址轮廓形状形成的时间计为起始年代；以城墙拆除（以破坏其整体性为“拆除”，局部如瓮城、羊马城、城门之拆改不计）或城址废弃为废止年代。</p>
-                        <p>按此标准，以城址依据轮廓成型的起始年代将所有城址要素归类为远古时代、夏商时期、两周时期、秦汉时期、魏晋南北朝时期、隋唐时期、辽宋金时期、蒙元时期、明清时期、民国时期、本朝（现代），另外，沿用至清代的治所城墙大多无法精确溯源其轮廓成型年代，故均置于单独的“清治所”文件夹中，以其清代形态为准。无法简单按照中原年代归类的周边部族政权置于“藩邦”，其余国外城址置于“外国”，按现代国别与行政区划进行归类。</p>
-                        <p>城址的参考，指该城址轮廓复原和基本信息所参照的地图文献或文本文献。相关的地图文献、遗址平面图可在下方的参考资料中下载。文本参考文献电子版缺失较多，多数需要自行查找下载。</p>
-                    </div>
+                    <section class="home-reading-card home-coverage" aria-labelledby="coverage-title">
+                        <h3 id="coverage-title">收录范围</h3>
+                        <p>收录约公元前 7000 年至现代的城市、聚落与军事据点的防御工事轮廓。以城墙为主，也收录长城、山寨、圩子、宫墙、环壕、山险、水险和新建仿古城墙等。</p>
+                        <p>现有 14,000 多条城址信息，以中国及周边地区为主，多数地区仍有缺漏。其他地区绘制的部分轮廓仅供参考。</p>
+                    </section>
+                    <section class="home-reading-card" aria-labelledby="map-use-title">
+                        <h3 id="map-use-title">地图使用</h3>
+                        <dl>
+                            <div><dt>底图与搜索</dt><dd>左下角可切换高德地图与 Esri World Imagery。两种底图都能搜城址和经纬度。高德地图还支持搜索国内地名，Esri 提供全球卫星影像。</dd></div>
+                            <div><dt>图层目录</dt><dd>「城址线型数据」记录已知精确或大致轮廓的城址，「轮廓未定点位」标示轮廓和精确位置未定的城址。</dd></div>
+                            <div><dt>城址详情</dt><dd>点选后可查看名称、年代、别名、备注和参考文献。线型要素显示长度与中心坐标，闭合轮廓另显示面积。手机上从底部打开详情。</dd></div>
+                            <div><dt>测量与导出</dt><dd>地图支持测距和测面积，测量所得的路径和多边形可下载为 KML 文件。</dd></div>
+                        </dl>
+                    </section>
+                    <section class="home-reading-card" aria-labelledby="rules-title">
+                        <h3 id="rules-title">命名与年代规则</h3>
+                        <dl>
+                            <div><dt>名称</dt><dd>不带括号的是城址建成时的名称，如「燕中都」「华州」「嘉定县」。原名不详时用括号标记后人所称的名称，如「（陶寺）」「（八里城）」「（古城子）」。</dd></div>
+                            <div><dt>起讫年代</dt><dd>以城址轮廓形成的时间为起始年代，以城墙拆除或城址废弃的时间为废止年代。局部拆改，如瓮城、羊马城或城门拆改，不计作整体拆除。</dd></div>
+                            <div><dt>目录归类</dt><dd>按轮廓形成的年代归入远古、夏商、两周、秦汉、魏晋南北朝、隋唐、辽宋金、蒙元、明清、民国及现代。沿用至清代且难以溯源的治所城墙按清代形态归入「清治所」。难以按中原年代归类的周边部族政权归入「藩邦」，其他国外城址归入「外国」，按当代国别和行政区划整理。</dd></div>
+                            <div><dt>资料出处</dt><dd>详情中的参考资料用于复原轮廓及核对基本信息。地图和遗址平面图可在下方参考资料中下载，缺少电子版的文字文献需自行查找。</dd></div>
+                        </dl>
+                    </section>
                 </div>
             </div>
         </section>
@@ -130,29 +140,16 @@
         <section id="updates" class="home-section" aria-labelledby="updates-title">
             <header class="home-section-heading">
                 <h2 id="updates-title">更新记录</h2>
-                <p>系统功能、城址资料补充与重要修订。</p>
+                <p>按版本记录城址资料补充与重要修订。</p>
             </header>
 
-            <div class="home-section-content home-release">
-                <div class="home-release-heading">
-                    <h3><time datetime="2026-10-28">2026.10.28</time></h3>
-                    <code>v20261028</code>
-                </div>
-                <div class="home-update-columns">
-                    <div>
-                        <h4>系统更新</h4>
-                        <ol>
-                            <li>增加搜索栏，可搜索地名和要素名，适配常见格式的经纬度搜索。</li>
-                            <li>增加测距、测面积及测量线面的kml下载功能，要素自动显示长度、面积、中心坐标（面积仅限闭合要素）。</li>
-                            <li>侧栏增加起始年代分类以及轮廓未定点位的选项。</li>
-                            <li>更改“关灯”模式透明度。</li>
-                            <li>鼠标移至要素时高亮显示。</li>
-                            <li>增加Esri底图。</li>
-                            <li>增加定位功能。</li>
-                            <li>移动端适配。</li>
-                        </ol>
+            <div class="home-section-content">
+                <article class="home-release" aria-labelledby="release-title">
+                    <div class="home-release-heading">
+                        <h3 id="release-title"><time datetime="2026-10-28">2026.10.28</time></h3>
+                        <code>v20261028</code>
                     </div>
-                    <div>
+                    <div class="home-content-updates">
                         <h4>内容更新</h4>
                         <ol>
                             <li>补充漠北历代城址、蒙古中部地区壕墙（采用B站67501015整理提供的数据）。</li>
@@ -167,21 +164,34 @@
                             <li>补充南亚部分城址。</li>
                         </ol>
                     </div>
-                </div>
-                <div class="home-corrections">
-                    <h4>重大误差修正</h4>
-                    <ul>
-                        <li>峡江县（清治所）</li>
-                        <li>（沙虎）（渤海-明）</li>
-                        <li>万载县（清治所）</li>
-                        <li>瑞昌县（清治所）</li>
-                        <li>御谋城（背城）（宋）</li>
-                        <li>广州满城（清）</li>
-                        <li>日照县（清治所）</li>
-                        <li>兴国州（清治所）</li>
-                        <li>南安府 大庾县（清治所）</li>
-                    </ul>
-                </div>
+                    <div class="home-corrections">
+                        <h4>重大误差修正</h4>
+                        <ul>
+                            <li>峡江县（清治所）</li>
+                            <li>（沙虎）（渤海-明）</li>
+                            <li>万载县（清治所）</li>
+                            <li>瑞昌县（清治所）</li>
+                            <li>御谋城（背城）（宋）</li>
+                            <li>广州满城（清）</li>
+                            <li>日照县（清治所）</li>
+                            <li>兴国州（清治所）</li>
+                            <li>南安府 大庾县（清治所）</li>
+                        </ul>
+                    </div>
+                </article>
+                <details class="home-system-updates" open>
+                    <summary>系统更新 <span class="home-system-expand" aria-hidden="true">+</span><span class="home-system-collapse" aria-hidden="true">−</span></summary>
+                    <ol>
+                        <li>增加搜索栏，可搜索地名和要素名，适配常见格式的经纬度搜索。</li>
+                        <li>增加测距、测面积及测量线面的kml下载功能，要素自动显示长度、面积、中心坐标（面积仅限闭合要素）。</li>
+                        <li>侧栏增加起始年代分类以及轮廓未定点位的选项。</li>
+                        <li>更改“关灯”模式透明度。</li>
+                        <li>鼠标移至要素时高亮显示。</li>
+                        <li>增加Esri底图。</li>
+                        <li>增加定位功能。</li>
+                        <li>移动端适配。</li>
+                    </ol>
+                </details>
             </div>
         </section>
 
@@ -193,10 +203,12 @@
 
             <div class="home-section-content">
                 <div class="home-reference-columns">
-                    <div>
-                        <h3>参考资料下载</h3>
-                        <p>百度网盘</p>
-                        <ul class="home-source-list home-downloads">
+                    <section class="home-reference-card" aria-labelledby="downloads-title">
+                        <header>
+                            <h3 id="downloads-title">参考资料下载</h3>
+                            <span>百度网盘</span>
+                        </header>
+                        <ul class="home-source-list">
                             <li>
                                 <a href="https://pan.baidu.com/s/1mhYDC5NKuzzkaRMow53UQg?pwd=r7h9" target="_blank" rel="noopener">城址参考旧地图、旧卫星图和复原平面图</a>
                                 <span class="home-extraction">提取码 <code>r7h9</code></span>
@@ -214,34 +226,41 @@
                                 <span class="home-extraction">提取码 <code>m9om</code></span>
                             </li>
                         </ul>
-                    </div>
-                    <div>
-                        <h3>外部链接</h3>
-                        <ul class="home-source-list">
+                    </section>
+                    <section class="home-reference-card" aria-labelledby="external-title">
+                        <header>
+                            <h3 id="external-title">外部链接</h3>
+                        </header>
+                        <ul class="home-source-list home-external-links">
                             <li><a href="https://www.zhihu.com/people/bi-ding-38/columns" target="_blank" rel="noopener">知乎主页</a></li>
                             <li><a href="https://stanford.maps.arcgis.com/apps/PublicGallery/index.html?appid=1ed3022fc7884690a2f137bce9dfe4fe" target="_blank" rel="noopener">日勘军图</a></li>
                             <li><a href="https://earthworks.stanford.edu/catalog/stanford-ng525ny5879" target="_blank" rel="noopener">朝鲜半岛五万分一</a></li>
                             <li><a href="https://www.toutiao.com/c/user/token/MS4wLjABAAAAqPVHnPcZAPEGzXH-_YqjELLyUz6YPkhoK0uQaT1qsExy44lY6k5KYfC4wenzumDn/" target="_blank" rel="noopener">吴钩斩月中国城池史</a></li>
                         </ul>
-                    </div>
+                    </section>
                 </div>
                 <div class="home-credits">
-                    <h3>作者与资料协助</h3>
-                    <p>曲振宇（知乎 @吡啶）</p>
-                    <dl>
-                        <div><dt>无影TEL</dt><dd>10-14世纪大陆与朝鲜半岛城址的寻找与资料分享</dd></div>
-                        <div><dt>67501015（B站）</dt><dd>内、外蒙古城址寻找与资料分享</dd></div>
-                        <div><dt>火箭人（长城小站）</dt><dd>数据应用</dd></div>
-                        <div><dt>吴钩斩月（今日头条）</dt><dd>汉代城址、清代府州县</dd></div>
-                        <div><dt>_Aleksibob</dt><dd>明清圩镇堡寨</dd></div>
-                        <div><dt>李慧</dt><dd>哈尔滨周边城址实地探查、资料分享</dd></div>
-                        <div><dt>徐辉（古城数字博物馆）</dt><dd>数据应用、近代城市地图分享</dd></div>
-                        <div><dt>胖昊（微信公众号、微博）</dt><dd>地方志资料提供、纠错</dd></div>
-                        <div><dt>Kümül Öge</dt><dd>草原城址资料分享</dd></div>
-                        <div><dt>刘志佳（边疆所）</dt><dd>新疆清代城址考据、纠错</dd></div>
-                        <div><dt>宋晋（山东建筑大学）</dt><dd>城址相关论文资料查找与分享</dd></div>
-                        <div><dt>张钊坤（华南理工大学）</dt><dd>军用地图资料分享</dd></div>
-                    </dl>
+                    <section class="home-author" aria-labelledby="author-title">
+                        <h3 id="author-title">项目作者</h3>
+                        <p><strong>曲振宇</strong> <a href="https://www.zhihu.com/people/bi-ding-38/columns" target="_blank" rel="noopener">知乎 @吡啶</a></p>
+                    </section>
+                    <section class="home-contributors" aria-labelledby="contributors-title">
+                        <h3 id="contributors-title">贡献者</h3>
+                        <dl>
+                            <div><dt>无影TEL</dt><dd>10-14世纪大陆与朝鲜半岛城址的寻找与资料分享</dd></div>
+                            <div><dt>67501015 <span class="home-credit-affiliation">B站</span></dt><dd>内、外蒙古城址寻找与资料分享</dd></div>
+                            <div><dt>火箭人 <span class="home-credit-affiliation">长城小站</span></dt><dd>数据应用</dd></div>
+                            <div><dt>吴钩斩月 <span class="home-credit-affiliation">今日头条</span></dt><dd>汉代城址、清代府州县</dd></div>
+                            <div><dt>_Aleksibob</dt><dd>明清圩镇堡寨</dd></div>
+                            <div><dt>李慧</dt><dd>哈尔滨周边城址实地探查、资料分享</dd></div>
+                            <div><dt>徐辉 <span class="home-credit-affiliation">古城数字博物馆</span></dt><dd>数据应用、近代城市地图分享</dd></div>
+                            <div><dt>胖昊 <span class="home-credit-affiliation">微信公众号、微博</span></dt><dd>地方志资料提供、纠错</dd></div>
+                            <div><dt>Kümül Öge</dt><dd>草原城址资料分享</dd></div>
+                            <div><dt>刘志佳 <span class="home-credit-affiliation">边疆所</span></dt><dd>新疆清代城址考据、纠错</dd></div>
+                            <div><dt>宋晋 <span class="home-credit-affiliation">山东建筑大学</span></dt><dd>城址相关论文资料查找与分享</dd></div>
+                            <div><dt>张钊坤 <span class="home-credit-affiliation">华南理工大学</span></dt><dd>军用地图资料分享</dd></div>
+                        </dl>
+                    </section>
                 </div>
             </div>
         </section>

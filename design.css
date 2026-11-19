@@ -1,6 +1,6 @@
 :root {
     --font-ui: system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
-    --primary: #185abc;
+    --primary: #853d33;
     --secondary: #516175;
     --heading: #172435;
     --text: #243246;
@@ -8,9 +8,9 @@
     --surface: #fff;
     --background: #f1f4f7;
     --border: #e1e7ed;
-    --selected: #edf4ff;
-    --selected-text: #164981;
-    --focus: #3973cb;
+    --selected: #f8eeeb;
+    --selected-text: #662e27;
+    --focus: #a34f42;
     --error: #b3261e;
     --font-small: 12px;
     --font-body: 14px;

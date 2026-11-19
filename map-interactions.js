@@ -55,7 +55,7 @@
             isFeatureVisible: feature => isVisible(feature, featureRecords.get(feature)?.layer)
         });
 
-        function showFeature(feature, { coordinate, locate = false } = {}) {
+        function showFeature(feature, { coordinate, locate = false, fromSearch = false } = {}) {
             const geometry = feature?.getGeometry();
             if (!geometry) return false;
             const record = featureRecords.get(feature);
@@ -63,7 +63,7 @@
             const description = record?.desc ?? (feature.get('description') || feature.get('Description') || '');
             const anchor = coordinate ?? ol.extent.getCenter(geometry.getExtent());
 
-            ui.showDetail(name, getFeatureMetrics(geometry, toWgs84), description, anchor, feature);
+            ui.showDetail(name, getFeatureMetrics(geometry, toWgs84), description, anchor, { feature, fromSearch });
             if (locate) ui.locate(anchor, geometry);
             return true;
         }

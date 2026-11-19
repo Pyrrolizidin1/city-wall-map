@@ -67,6 +67,14 @@
     border-radius: inherit;
 }
 #map-search-form:focus-within { box-shadow: inset 0 0 0 2px var(--focus); }
+#map-search-form button {
+    background: var(--selected);
+    color: var(--selected-text);
+}
+#map-search-form button:hover {
+    background: var(--primary);
+    color: var(--surface);
+}
 #search-input {
     flex: 1;
     min-width: 0;
@@ -89,8 +97,20 @@
     left: calc(var(--sidebar-width) + var(--map-inset));
     width: min(460px, calc(100vw - var(--sidebar-width) - 172px));
 }
-#layers-open { flex: none; width: 50px; height: 50px; box-shadow: var(--shadow); }
-#layers-open[aria-expanded="true"] { color: var(--primary); background: var(--selected); }
+#layers-open {
+    flex: none;
+    width: 50px;
+    height: 50px;
+    color: var(--surface);
+    background: var(--primary);
+    box-shadow: var(--shadow);
+}
+#layers-open:hover { background: var(--selected-text); }
+#layers-open[aria-expanded="true"] {
+    color: var(--selected-text);
+    background: var(--selected);
+    border: 1px solid var(--focus);
+}
 .map-home-link {
     position: fixed;
     z-index: 2;
@@ -119,7 +139,10 @@
 .sidebar-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .sidebar-header { min-height: 57px; padding: 0 16px; display: flex; gap: 10px; align-items: center; }
 .sidebar-header h1, .sidebar-header h2 { font-size: var(--font-panel); color: var(--heading); font-weight: 650; margin: 0; flex: 1; }
-.sidebar-header > svg { color: var(--secondary); }
+#sidebar .sidebar-header, #map-detail .sidebar-header {
+    background: linear-gradient(105deg, var(--selected), var(--surface));
+}
+.sidebar-header > svg { color: var(--primary); }
 .directory-bar {
     min-height: 49px;
     display: flex;
@@ -214,7 +237,7 @@
 }
 .ft-row input:checked { border-color: var(--secondary); background: var(--secondary); }
 .ft-row input:checked::before { content: ""; width: 7px; height: 4px; border: solid white; border-width: 0 0 2px 2px; transform: translateY(-1px) rotate(-45deg); }
-.ft-row input:indeterminate { border-color: #92b4e6; background: #e5effc; }
+.ft-row input:indeterminate { border-color: var(--focus); background: var(--selected); }
 .ft-row input:indeterminate::before { content: ""; width: 8px; border-top: 2px solid var(--primary); }
 .ft-label, .ft-record-name {
     display: inline-flex;
@@ -268,15 +291,16 @@
     min-height: 56px;
     padding: 8px 12px 8px 16px;
     border-bottom: 1px solid var(--border);
+    border-radius: var(--radius-card) var(--radius-card) 0 0;
 }
 #map-detail .sidebar-header .icon-button { flex: none; }
-#detail-title { min-width: 0; overflow-wrap: anywhere; line-height: 1.3; }
-#map-detail #detail-back { display: none; }
+#map-detail #detail-title { min-width: 0; overflow-wrap: anywhere; line-height: 1.3; color: var(--selected-text); }
 #detail-close::after { left: auto; right: 0; transform: none; }
 .detail-body { padding: 16px; overflow-wrap: anywhere; overscroll-behavior: contain; }
 #detail-content { line-height: 1.7; }
 .detail-footer { flex: none; border-top: 1px solid var(--border); padding: 12px 16px; }
-.detail-footer .map-pill { width: 100%; background: var(--selected); color: var(--selected-text); box-shadow: none; }
+.detail-footer .map-pill { width: 100%; background: var(--primary); color: var(--surface); box-shadow: none; }
+.detail-footer .map-pill:hover { background: var(--selected-text); }
 
 .map-options {
     --basemap-width: 100px;
@@ -427,6 +451,7 @@
 
 @media (max-width: 700px) {
     :root { --map-inset: 12px; }
+    .map-page { --map-panel-height: min(64dvh, 620px); }
     .map-home-link { top: 15px; }
     .map-toolbar, .sidebar-open .map-toolbar { left: var(--map-inset); width: calc(100% - 76px); }
     .map-options { --basemap-width: 76px; }
@@ -435,9 +460,9 @@
     .map-legend li { gap: 4px; }
     .map-legend .line-swatch { width: 11px; }
     .legend-tooltip { max-width: min(240px, calc(100vw - 110px)); }
-    #sidebar { inset: auto 0 0; width: 100%; height: min(64dvh, 620px); border-radius: var(--radius-card) var(--radius-card) 0 0; padding-bottom: env(safe-area-inset-bottom); }
-    :is(.sidebar-open, .detail-open) .map-search .search-results { max-height: max(84px, calc(100dvh - min(64dvh, 620px) - 78px)); }
-    :is(.sidebar-open, .detail-open) { --map-footer-offset: min(64dvh, 620px); }
+    #sidebar { inset: auto 0 0; width: 100%; height: var(--map-panel-height); border-radius: var(--radius-card) var(--radius-card) 0 0; padding-bottom: env(safe-area-inset-bottom); }
+    :is(.sidebar-open, .detail-open) .map-search .search-results { max-height: max(84px, calc(100dvh - var(--map-panel-height) - 78px)); }
+    :is(.sidebar-open, .detail-open) { --map-footer-offset: var(--map-panel-height); }
     :is(.sidebar-open, .detail-open) .map-options { display: none; }
     :is(.sidebar-open, .detail-open) #top-controls { bottom: calc(var(--map-footer-offset) + 52px); grid-auto-flow: column; }
     :is(.sidebar-open, .detail-open) #map .ol-zoom { bottom: calc(var(--map-footer-offset) + 105px); }
@@ -446,12 +471,11 @@
     #map-detail {
         inset: auto 0 0;
         width: 100%;
-        height: min(64dvh, 620px);
+        height: var(--map-panel-height);
         max-height: none;
         border-radius: var(--radius-card) var(--radius-card) 0 0;
         padding-bottom: env(safe-area-inset-bottom);
     }
-    #map-detail #detail-back { display: inline-flex; }
     .sidebar-header { min-height: 48px; }
     .ft-row, .ft-record { min-height: 44px; }
     .ft-locate { visibility: visible; }
@@ -459,6 +483,23 @@
     .directory-bar { padding: 0 11px; }
     .sidebar-tabs { gap: 8px; }
     #search-input { font-size: 16px; }
+}
+@media (max-width: 700px) and (max-height: 640px) {
+    .map-page { --map-panel-height: min(64dvh, max(0px, calc(100dvh - 154px))); }
+    :is(.sidebar-open, .detail-open) #top-controls {
+        right: calc(var(--map-inset) + 96px);
+        bottom: calc(var(--map-footer-offset) + 43px);
+        gap: 5px;
+    }
+    :is(.sidebar-open, .detail-open) #map .ol-zoom {
+        display: flex;
+        bottom: calc(var(--map-footer-offset) + 43px);
+    }
+    :is(.sidebar-open, .detail-open) #map .ol-zoom button { height: 44px; }
+    :is(.sidebar-open, .detail-open) #map .ol-zoom button + button {
+        border-top: 0;
+        border-inline-start: 1px solid var(--border);
+    }
 }
 @media (max-width: 380px) {
     .map-options { grid-template-columns: minmax(0, 1fr); }

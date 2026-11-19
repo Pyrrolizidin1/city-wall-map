@@ -23,7 +23,6 @@
         const view = map.getView();
         const sidebar = byId('sidebar');
         const detail = byId('map-detail');
-        const detailBack = byId('detail-back');
         const detailClose = byId('detail-close');
         const mobileLayout = matchMedia('(max-width: 700px)');
         const input = byId('search-input');
@@ -41,7 +40,6 @@
         let coordinate;
         let currentFeature;
         let restoreId = saved.selected;
-        let choosingResult = false;
         let searchReturn;
         let detailTrigger;
 
@@ -49,12 +47,6 @@
             results.hidden = !open;
             searchPanel.classList.toggle('results-open', open);
         }
-
-        results.addEventListener('click', event => {
-            if (!event.target.closest('.result-item')) return;
-            choosingResult = true;
-            queueMicrotask(() => { choosingResult = false; });
-        }, true);
 
         const selection = new ol.source.Vector();
         map.addLayer(new ol.layer.Vector({
@@ -233,12 +225,12 @@
             if (!detail.hidden) closeDetail();
         }
 
-        function showDetail(title, metrics, description, coord, feature) {
+        function showDetail(title, metrics, description, coord, { feature, fromSearch = false } = {}) {
             restoreId = undefined;
             coordinate = coord;
             const focused = document.activeElement;
             if (!detail.contains(focused)) detailTrigger = focused === document.body ? null : focused;
-            searchReturn = choosingResult;
+            searchReturn = fromSearch;
             if (mobileLayout.matches) setSearchOpen(false);
             setFeature(feature);
             byId('detail-title').textContent = title;
@@ -247,7 +239,7 @@
             renderDescription(content, description);
             content.parentElement.scrollTop = 0;
             setDetailOpen(true);
-            if (mobileLayout.matches) detailBack.focus();
+            if (mobileLayout.matches) detailClose.focus();
         }
 
         layers.addEventListener('click', () => {
@@ -260,19 +252,17 @@
             byId('sidebar-close').focus();
         });
         byId('sidebar-close').addEventListener('click', closeSidebar);
-        detailClose.addEventListener('click', () => closeDetail());
-        detailBack.addEventListener('click', () => closeDetail(true));
+        detailClose.addEventListener('click', () => closeDetail(mobileLayout.matches));
         detail.addEventListener('keydown', event => {
-            if (event.key === 'Escape') closeDetail();
+            if (event.key === 'Escape') closeDetail(mobileLayout.matches);
         });
         mobileLayout.addEventListener('change', () => {
             if (detail.hidden) return;
             if (mobileLayout.matches) {
                 setSearchOpen(false);
-                detailBack.focus();
+                detailClose.focus();
             } else {
                 positionDetail();
-                if (document.activeElement === detailBack) detailClose.focus();
             }
         });
         input.addEventListener('focus', () => {
@@ -351,7 +341,7 @@
                     open: !sidebar.hidden,
                     filterTab: filter.tabIndex === 0,
                     selected: currentFeature?.getId() ?? restoreId,
-                    detail: !detail.hidden,
+                    detail: !detail.hidden || Boolean(restoreId && saved.detail),
                     filters,
                     pendingFolderActions
                 }));
