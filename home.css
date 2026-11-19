@@ -331,6 +331,8 @@
 .home-system-updates summary span { color: var(--secondary); font-size: 18px; }
 .home-system-updates[open] .home-system-expand,
 .home-system-updates:not([open]) .home-system-collapse { display: none; }
+.home-system-updates h4 { padding: 8px 16px 0; }
+.home-system-updates ol + h4 { padding-top: 12px; border-top: 1px solid var(--border); }
 .home-system-updates ol { margin: 0; padding: 8px 16px 16px 38px; }
 .home-system-updates li + li { margin-top: 6px; }
 
