@@ -3,579 +3,273 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="在卫星地图上查找城墙、环壕和历史城址，查阅起讫年代、测量数据与参考文献。">
     <title>城墙城址数据集</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            background: #f2efe8;
-            font-family: "Microsoft YaHei", "微软雅黑", "PingFang SC", sans-serif;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 30px 20px;
-        }
-
-        .scroll-card {
-            max-width: 1100px;
-            width: 100%;
-            background: #fcf9f2;
-            background-image: 
-                linear-gradient(rgba(200, 180, 150, 0.08) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(200, 180, 150, 0.08) 1px, transparent 1px);
-            background-size: 28px 28px;
-            padding: 40px 48px 48px 48px;
-            border-radius: 32px 12px 32px 12px;
-            box-shadow: 0 24px 48px -16px rgba(0,0,0,0.5), inset 0 1px 0 #fffef7, 0 0 0 1px #d8cfc0;
-            border: 1px solid #ede6d8;
-            transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.23, 1, 0.32, 1);
-            animation: fadeUp 0.9s ease forwards;
-        }
-        @keyframes fadeUp {
-            0% { opacity: 0; transform: translateY(24px); }
-            100% { opacity: 1; transform: translateY(0); }
-        }
-
-        .title-block {
-            text-align: center;
-            border-bottom: 2px solid #d3c9b8;
-            padding-bottom: 20px;
-            margin-bottom: 28px;
-            position: relative;
-        }
-        .title-block::after {
-            content: "◆";
-            position: absolute;
-            bottom: -14px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #fcf9f2;
-            padding: 0 14px;
-            color: #b8aa92;
-            font-size: 18px;
-        }
-        h1 {
-            font-size: 34px;
-            font-weight: 700;
-            letter-spacing: 4px;
-            color: #3a3228;
-            text-shadow: 1px 1px 0 rgba(255,245,230,0.5);
-        }
-        .subhead {
-            font-size: 20px;
-            color: #7a6c5a;
-            letter-spacing: 4px;
-            margin-top: 6px;
-            font-weight: 400;
-        }
-
-        .meta-grid {
-            display: grid;
-            grid-template-columns: 1fr 2.2fr;
-            gap: 12px 20px;
-            background: #f5f0e7;
-            padding: 16px 22px;
-            border-radius: 40px 8px 40px 8px;
-            margin-bottom: 28px;
-            border-left: 5px solid #bbaa92;
-            box-shadow: inset 0 0 0 1px #e6ded2;
-            font-size: 14.5px;
-            line-height: 1.7;
-            color: #3d352a;
-        }
-        .meta-grid .author {
-            font-weight: 600;
-            color: #2b241c;
-        }
-        .meta-grid .helper-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0 18px;
-            font-size: 13.8px;
-        }
-        .helper-grid span {
-            display: inline-block;
-            padding: 0 2px;
-        }
-        .helper-grid .name {
-            font-weight: 700;
-            color: #3d352a;
-        }
-        .helper-grid .desc {
-            color: #5f5240;
-            font-size: 13px;
-        }
-        .meta-grid strong {
-            color: #2f281e;
-        }
-
-        .legend-wrap {
-            background: #f8f4eb;
-            padding: 18px 22px 12px 22px;
-            border-radius: 18px;
-            margin: 16px 0 20px 0;
-            border: 1px solid #e2d9cb;
-        }
-        .legend-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 6px 28px;
-        }
-        .legend-item {
-            display: flex;
-            align-items: baseline;
-            gap: 10px;
-            font-size: 14px;
-            color: #2f2a22;
-            padding: 5px 0;
-            border-bottom: 1px dashed #e3dbcd;
-        }
-        .legend-item:last-child,
-        .legend-item:nth-last-child(2) {
-            border-bottom: none;
-        }
-        .color-swatch {
-            width: 30px;
-            height: 6px;
-            border-radius: 12px;
-            flex-shrink: 0;
-            border: 1px solid rgba(0,0,0,0.08);
-        }
-        .legend-note {
-            font-size: 12.5px;
-            color: #6f624e;
-            margin-top: 10px;
-            padding-top: 8px;
-            border-top: 1px solid #e0d6c6;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px 22px;
-        }
-        .legend-note i {
-            font-style: normal;
-            background: #ede7db;
-            padding: 0 8px;
-            border-radius: 30px;
-        }
-
-        /* 新增：网站介绍及使用说明 */
-        .intro-box {
-            background: #fcf9f2;
-            padding: 20px 24px;
-            border-radius: 12px;
-            margin: 18px 0 22px 0;
-            border: 1px solid #e2d9cb;
-            border-left: 5px solid #bbaa92;
-            font-size: 14px;
-            line-height: 1.8;
-            color: #3d352a;
-        }
-        .intro-box h3 {
-            font-size: 16px;
-            letter-spacing: 1px;
-            font-weight: 600;
-            color: #3e3529;
-            margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 1px dashed #e3dbcd;
-        }
-        .intro-box p {
-            margin-bottom: 10px;
-            text-align: justify;
-        }
-        .intro-box p:last-child {
-            margin-bottom: 0;
-        }
-
-        .update-box {
-            background: #f2ece1;
-            padding: 18px 24px 12px 24px;
-            border-radius: 20px 4px 20px 4px;
-            margin: 18px 0 22px 0;
-            border-left: 6px solid #9b8b78;
-        }
-        .update-box h3 {
-            font-size: 16px;
-            letter-spacing: 2px;
-            font-weight: 600;
-            color: #3e3529;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-        .update-box h3::before {
-            content: "✦";
-            color: #9b8b78;
-            font-weight: 400;
-        }
-        
-        .update-subtitle {
-            font-size: 14.5px;
-            font-weight: 600;
-            color: #5f5240;
-            margin: 12px 0 6px 0;
-            padding-left: 8px;
-            border-left: 3px solid #bbaa92;
-        }
-
-        .update-scroll {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 6px 30px;
-            max-height: 300px;
-            overflow-y: auto;
-            padding-right: 6px;
-        }
-        .update-scroll ul {
-            list-style: none;
-            padding-left: 4px;
-        }
-        .update-scroll li {
-            font-size: 13.8px;
-            line-height: 1.65;
-            color: #3d352a;
-            padding: 3px 0 3px 22px;
-            position: relative;
-            border-bottom: 1px solid #e3d9ca;
-        }
-        .update-scroll li:last-child {
-            border-bottom: none;
-        }
-        .update-scroll li::before {
-            content: "▸";
-            position: absolute;
-            left: 2px;
-            color: #8f7e68;
-            font-weight: 700;
-        }
-        .update-scroll strong {
-            font-weight: 600;
-            color: #2f281e;
-        }
-
-        .download-box {
-            background: #f8f4eb;
-            padding: 18px 24px;
-            border-radius: 18px;
-            margin: 18px 0 22px 0;
-            border: 1px solid #e2d9cb;
-        }
-        .download-box h3 {
-            font-size: 16px;
-            letter-spacing: 2px;
-            font-weight: 600;
-            color: #3e3529;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-        .download-box h3::before {
-            content: "📥";
-            font-size: 18px;
-        }
-        .download-list {
-            list-style: none;
-            padding-left: 4px;
-        }
-        .download-list li {
-            font-size: 14px;
-            line-height: 1.8;
-            color: #3d352a;
-            padding: 6px 0;
-            border-bottom: 1px dashed #e3dbcd;
-        }
-        .download-list li:last-child {
-            border-bottom: none;
-        }
-        .download-list a {
-            color: #0056b3;
-            text-decoration: none;
-        }
-        .download-list a:hover {
-            text-decoration: underline;
-        }
-        .download-list .code {
-            background: #ede7db;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-family: monospace;
-            font-size: 13px;
-            color: #d9534f;
-        }
-
-        /* 新增：外部链接模块 */
-        .link-box {
-            background: #f8f4eb;
-            padding: 18px 24px;
-            border-radius: 18px;
-            margin: 18px 0 22px 0;
-            border: 1px solid #e2d9cb;
-        }
-        .link-box h3 {
-            font-size: 16px;
-            letter-spacing: 2px;
-            font-weight: 600;
-            color: #3e3529;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-        .link-box h3::before {
-            content: "🔗";
-            font-size: 18px;
-        }
-        .link-list {
-            list-style: none;
-            padding-left: 4px;
-        }
-        .link-list li {
-            font-size: 14px;
-            line-height: 1.8;
-            color: #3d352a;
-            padding: 6px 0;
-            border-bottom: 1px dashed #e3dbcd;
-            display: flex;
-            align-items: baseline;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-        .link-list li:last-child {
-            border-bottom: none;
-        }
-        .link-list a {
-            color: #0056b3;
-            text-decoration: none;
-            word-break: break-all;
-        }
-        .link-list a:hover {
-            text-decoration: underline;
-        }
-
-        .enter-btn {
-            display: block;
-            width: 100%;
-            padding: 18px 20px;
-            background: #3d352a;
-            color: #f5efe6;
-            border: none;
-            border-radius: 60px 12px 60px 12px;
-            font-size: 22px;
-            font-weight: 500;
-            letter-spacing: 8px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            box-shadow: 0 6px 0 #201c16, 0 8px 20px rgba(0,0,0,0.2);
-            font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
-            margin-top: 12px;
-        }
-        .enter-btn:hover {
-            background: #4f4538;
-            transform: scale(1.01);
-            box-shadow: 0 6px 0 #201c16, 0 14px 30px rgba(0,0,0,0.25);
-        }
-        .enter-btn:active {
-            transform: translateY(4px);
-            box-shadow: 0 2px 0 #201c16;
-        }
-
-        .ornament {
-            text-align: center;
-            color: #cfc3b0;
-            font-size: 12px;
-            letter-spacing: 10px;
-            margin-top: 8px;
-            user-select: none;
-        }
-
-        @media (max-width: 780px) {
-            .scroll-card { padding: 28px 18px 30px 18px; }
-            h1 { font-size: 26px; letter-spacing: 2px; }
-            .meta-grid { grid-template-columns: 1fr; gap: 6px; }
-            .meta-grid .helper-grid { grid-template-columns: 1fr; }
-            .legend-grid { grid-template-columns: 1fr; gap: 2px; }
-            .update-scroll { grid-template-columns: 1fr; max-height: 200px; }
-            .enter-btn { font-size: 18px; letter-spacing: 4px; padding: 14px; }
-            .intro-box p { font-size: 13.5px; }
-        }
-        @media (max-width: 480px) {
-            .scroll-card { padding: 20px 12px 22px 12px; }
-            h1 { font-size: 20px; }
-            .meta-grid { padding: 12px 14px; font-size: 13px; }
-            .helper-grid { font-size: 12.5px; }
-            .legend-item { font-size: 12.5px; }
-            .update-scroll li { font-size: 12.5px; }
-        }
-        
-        .update-text {
-            font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
-            font-size: 14px;
-            line-height: 1.8;
-            color: #3d352a;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            padding: 4px 0 4px 4px;
-            margin: 0;
-            background: transparent;
-            border: none;
-        }
-    </style>
+    <link rel="stylesheet" href="design.css?v=4">
+    <link rel="stylesheet" href="home.css?v=7">
 </head>
-<body>
-<div class="scroll-card" id="startCard">
-    <div class="title-block">
-        <h1>城墙城址数据集（测试）</h1>
-        <div class="subhead">v20261028</div>
-    </div>
+<body class="home-page">
+    <header class="home-header">
+        <div class="home-container home-header-inner">
+            <a class="home-brand" href="#top">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 20V9h4V5h4v4h3V5h4v4h3v11H3zm7 0v-5h4v5"/>
+                </svg>
+                城墙城址数据集
+            </a>
+            <nav class="home-nav" aria-label="首页目录">
+                <a href="#data">数据说明</a>
+                <a href="#updates">更新记录</a>
+                <a href="#references">参考资料</a>
+            </nav>
+        </div>
+    </header>
 
-    <div class="meta-grid">
-    <div class="author"><strong>作者</strong><br>曲振宇（知乎 <span style="background:#d9cebc;padding:0 8px;border-radius:20px;">@吡啶</span>）</div>
-    <div>
-        <div style="font-weight:500; margin-bottom:6px; letter-spacing:1px;">数据、资料的提供与协助：</div>
-        <div class="helper-grid">
-            <div class="helper-col">
-                <div class="helper-item"><span class="name">无影TEL</span><span class="desc">10-14世纪大陆与朝鲜半岛城址的寻找与资料分享</span></div>
-                <div class="helper-item"><span class="name">67501015（B站）</span><span class="desc">内、外蒙古城址寻找与资料分享</span></div>
-                <div class="helper-item"><span class="name">火箭人（长城小站）</span><span class="desc">数据应用</span></div>
-                <div class="helper-item"><span class="name">吴钩斩月（今日头条）</span><span class="desc">汉代城址、清代府州县</span></div>
-                <div class="helper-item"><span class="name">_Aleksibob</span><span class="desc">明清圩镇堡寨</span></div>
-                <div class="helper-item"><span class="name">李慧</span><span class="desc">哈尔滨周边城址实地探查、资料分享</span></div>
-                <div class="helper-item"><span class="name">徐辉（古城数字博物馆）</span><span class="desc">数据应用、近代城市地图分享</span></div>
+    <main id="top" class="home-container">
+        <section class="home-hero" aria-labelledby="home-title">
+            <div class="home-hero-intro">
+                <div>
+                    <h1 id="home-title">城墙城址数据集</h1>
+                    <p class="home-lead">在卫星地图上查找城墙、环壕和历史城址。</p>
+                    <p>点选城址，可查起讫年代、测量数据与参考文献。</p>
+                </div>
+                <a class="home-primary" href="map-satellite.html">进入卫星地图</a>
             </div>
-            <div class="helper-col">
-                <div class="helper-item"><span class="name">胖昊（微信公众号、微博）</span><span class="desc">地方志资料提供、纠错</span></div>
-                <div class="helper-item"><span class="name">Kümül Öge</span><span class="desc">草原城址资料分享</span></div>
-                <div class="helper-item"><span class="name">刘志佳（边疆所）</span><span class="desc">新疆清代城址考据、纠错</span></div>
-                <div class="helper-item"><span class="name">宋晋（山东建筑大学）</span><span class="desc">城址相关论文资料查找与分享</span></div>
-                <div class="helper-item"><span class="name">张钊坤（华南理工大学）</span><span class="desc">军用地图资料分享</span></div>
+            <figure class="home-preview">
+                <img src="map-preview.webp?v=3" width="1824" height="817" fetchpriority="high"
+                    alt="卫星地图预览，显示西安府城墙轮廓和城址详情窗口">
+                <figcaption>
+                    <span>卫星地图预览 · 西安府城墙</span>
+                    <span>影像 © Esri, Maxar, Earthstar Geographics</span>
+                </figcaption>
+            </figure>
+        </section>
+
+        <section id="data" class="home-section" aria-labelledby="data-title">
+            <header class="home-section-heading">
+                <h2 id="data-title">数据说明</h2>
+                <p>以中国及周边地区为主，覆盖自约公元前 7000 年至现代的城墙、环壕与遗址轮廓。</p>
+                <dl class="home-meta">
+                    <div><dt>数据版本</dt><dd><code>v20261028</code></dd></div>
+                    <div><dt>更新日期</dt><dd><time datetime="2026-10-28">2026.10.28</time></dd></div>
+                    <div><dt>作者</dt><dd>曲振宇</dd></div>
+                </dl>
+            </header>
+
+            <div class="home-section-content">
+                <div class="home-legend-panel">
+                    <div class="home-legend-heading">
+                        <h3>读图说明</h3>
+                        <p>同色浅线表示推测区段，不透明度为 40%。遗址范围线使用 80% 不透明度。</p>
+                    </div>
+                    <div class="home-legend-scroll" role="region" aria-label="线型图例" tabindex="0">
+                        <table class="home-legend">
+                            <thead>
+                                <tr><th scope="col">类别</th><th scope="col">线型</th><th scope="col">含义</th><th scope="col">推测区段</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <th scope="row">防御墙</th>
+                                    <td><span class="home-line-example"><span class="home-line home-line-wall" aria-hidden="true"></span><code>Co</code></span></td>
+                                    <td>包括长城、城墙、圩子墙等。</td>
+                                    <td><span class="home-line-example"><span class="home-line home-line-wall home-line-inferred" aria-hidden="true"></span><code>Ct</code></span></td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">环城护堤</th>
+                                    <td><span class="home-line-example"><span class="home-line home-line-levee" aria-hidden="true"></span><code>Go</code></span></td>
+                                    <td>建造形制与城墙类似，战时或可转换为防御设施。</td>
+                                    <td><span class="home-line-example"><span class="home-line home-line-levee home-line-inferred" aria-hidden="true"></span><code>Gt</code></span></td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">断崖、山险</th>
+                                    <td><span class="home-line-example"><span class="home-line home-line-cliff" aria-hidden="true"></span><code>Oo</code></span></td>
+                                    <td>不依附城墙，单独存在的断崖、山险。</td>
+                                    <td>—</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">环壕、水险</th>
+                                    <td><span class="home-line-example"><span class="home-line home-line-moat" aria-hidden="true"></span><code>Bo</code></span></td>
+                                    <td>不依附城墙，单独存在的环壕、围沟、水险。</td>
+                                    <td><span class="home-line-example"><span class="home-line home-line-moat home-line-inferred" aria-hidden="true"></span><code>Bt</code></span></td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">低级工事</th>
+                                    <td><span class="home-line-example"><span class="home-line home-line-minor" aria-hidden="true"></span><code>Po</code></span></td>
+                                    <td>包括竹篱、木栅、非城墙形态的寺庙、宫苑及陵寝围墙等。</td>
+                                    <td><span class="home-line-example"><span class="home-line home-line-minor home-line-inferred" aria-hidden="true"></span><code>Pt</code></span></td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">遗址范围</th>
+                                    <td><span class="home-line-example"><span class="home-line home-line-ruins" aria-hidden="true"></span><code>Yx</code></span></td>
+                                    <td>无连续防御工事的建成区或遗址范围，仅限未建城郭的清府县及历代都城、重要城市遗址。</td>
+                                    <td>—</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="home-reading-grid">
+                    <section class="home-reading-card home-coverage" aria-labelledby="coverage-title">
+                        <h3 id="coverage-title">收录范围</h3>
+                        <p>收录约公元前 7000 年至现代的城市、聚落与军事据点的防御工事轮廓。以城墙为主，也收录长城、山寨、圩子、宫墙、环壕、山险、水险和新建仿古城墙等。</p>
+                        <p>现有 14,000 多条城址信息，以中国及周边地区为主，多数地区仍有缺漏。其他地区绘制的部分轮廓仅供参考。</p>
+                    </section>
+                    <section class="home-reading-card" aria-labelledby="map-use-title">
+                        <h3 id="map-use-title">地图使用</h3>
+                        <dl>
+                            <div><dt>底图与搜索</dt><dd>左下角可切换高德地图与 Esri World Imagery。两种底图都能搜城址和经纬度。高德地图还支持搜索国内地名，Esri 提供全球卫星影像。</dd></div>
+                            <div><dt>图层目录</dt><dd>「城址线型数据」记录已知精确或大致轮廓的城址，「轮廓未定点位」标示轮廓和精确位置未定的城址。</dd></div>
+                            <div><dt>城址详情</dt><dd>点选后可查看名称、年代、别名、备注和参考文献。线型要素显示长度与中心坐标，闭合轮廓另显示面积。手机上从底部打开详情。</dd></div>
+                            <div><dt>测量与导出</dt><dd>地图支持测距和测面积，测量所得的路径和多边形可下载为 KML 文件。</dd></div>
+                        </dl>
+                    </section>
+                    <section class="home-reading-card" aria-labelledby="rules-title">
+                        <h3 id="rules-title">命名与年代规则</h3>
+                        <dl>
+                            <div><dt>名称</dt><dd>不带括号的是城址建成时的名称，如「燕中都」「华州」「嘉定县」。原名不详时用括号标记后人所称的名称，如「（陶寺）」「（八里城）」「（古城子）」。</dd></div>
+                            <div><dt>起讫年代</dt><dd>以城址轮廓形成的时间为起始年代，以城墙拆除或城址废弃的时间为废止年代。局部拆改，如瓮城、羊马城或城门拆改，不计作整体拆除。</dd></div>
+                            <div><dt>目录归类</dt><dd>按轮廓形成的年代归入远古、夏商、两周、秦汉、魏晋南北朝、隋唐、辽宋金、蒙元、明清、民国及现代。沿用至清代且难以溯源的治所城墙按清代形态归入「清治所」。难以按中原年代归类的周边部族政权归入「藩邦」，其他国外城址归入「外国」，按当代国别和行政区划整理。</dd></div>
+                            <div><dt>资料出处</dt><dd>详情中的参考资料用于复原轮廓及核对基本信息。地图和遗址平面图可在下方参考资料中下载，缺少电子版的文字文献需自行查找。</dd></div>
+                        </dl>
+                    </section>
+                </div>
             </div>
-        </div>
-    </div>
-</div>
+        </section>
 
-    <div class="legend-wrap">
-        <div class="legend-grid">
-            <div class="legend-item"><span class="color-swatch" style="background:#00b0b0;"></span> 青色线（线型：Co）：防御墙，包括长城、城墙、圩子墙等（推测区段以40%不透明度线标示，线型：Ct）</div>
-            <div class="legend-item"><span class="color-swatch" style="background:#4caf84;"></span> 绿色线（线型：Go）：建造形制与城墙类似的环城护堤，战时或可转换为防御设施（推测区段以40%不透明度线标示，线型：Gt）</div>
-            <div class="legend-item"><span class="color-swatch" style="background:#e07b3a;"></span> 橙色线（线型：Oo）：不依附城墙，单独存在的断崖、山险</div>
-            <div class="legend-item"><span class="color-swatch" style="background:#4080c0;"></span> 蓝色线（线型：Bo）：不依附城墙，单独存在的环壕、围沟、水险（推测区段以40%不透明度线标示，线型：Bt）</div>
-            <div class="legend-item"><span class="color-swatch" style="background:#e07b9a;"></span> 粉色线（线型：Po）：低等级地上环围工事，包括竹篱、木栅、非城墙形态的寺庙/宫苑/陵寝围墙等（推测区段以40%不透明度线标示，线型：Pt）</div>
-            <div class="legend-item"><span class="color-swatch" style="background:#f5c542;opacity:0.8;"></span> 黄色线（线型：Yx，80%不透明度）：无连续防御工事的建成区或遗址范围（仅限未建城郭的清府县及历代都城、重要城市遗址）</div>
-        </div>
-    </div>
+        <section id="updates" class="home-section" aria-labelledby="updates-title">
+            <header class="home-section-heading">
+                <h2 id="updates-title">更新记录</h2>
+                <p>按版本记录城址资料补充与重要修订。</p>
+            </header>
 
-    <!-- ===== 新增：网站介绍及使用说明 ===== -->
-    <div class="intro-box">
-        <h3>网站介绍及使用说明</h3>
-        <p>本网站用于展示城市、聚落、军事据点的防御工事轮廓结构（以下统称“城址”），防御工事以城墙为主体，兼收山寨、圩子、宫墙、环壕、山险、水险，以及线性的长城、新建仿古城墙等等。年代跨度从约公元前7000年到现代，地域以中国及周边地区为主，其余国外部分也酌情绘制部分城墙轮廓（仅供参考）。目前已收入14000多条城址信息，但大部分区域仍有较多缺漏，因此本网站也将持续更新。</p>
-        <p>本页下方设有两个进入地图链接，分别以高德地图和Esri World Imagery为底图。高德地图可搜索国内地名；Esri可查看全球卫星影像图。两个链接均支持进行城址要素关键词查询和经纬度坐标搜索，也可以在地图上进行测距、测面积操作，测量操作生成的路径和多边形可下载为kml文件。</p>
-        <p>城址要素分为两大类：已确认其精确或大致轮廓的路径要素（侧栏“城址线型数据”）和无法确定轮廓和精确位置的点要素（侧栏“轮廓未定点位”）。点击地图上的任意城址要素，会弹出信息框，展示城址名称、起讫年代、别名、备注、参考文献等基本信息；同时显示该段城址的长度和中心坐标（闭合路径会显示面积）。</p>
-        <p>点击要素时显示的城址名称，不加括号者为该城址建成时的名称，如：“燕中都”“华州”“嘉定县”；加括号者为后人不知其原名的情况下称呼该城址的名称，如“（陶寺）”“（八里城）”“（古城子）”。</p>
-        <p>城址的起讫，一般按该城址轮廓形状形成的时间计为起始年代；以城墙拆除（以破坏其整体性为“拆除”，局部如瓮城、羊马城、城门之拆改不计）或城址废弃为废止年代。按此标准，以城址依据轮廓成型的起始年代将所有城址要素归类为远古时代、夏商时期、两周时期、秦汉时期、魏晋南北朝时期、隋唐时期、辽宋金时期、蒙元时期、明清时期、民国时期、本朝（现代），另外，沿用至清代的治所城墙大多无法精确溯源其轮廓成型年代，故均置于单独的“清治所”文件夹中，以其清代形态为准。无法简单按照中原年代归类的周边部族政权置于“藩邦”，其余国外城址置于“外国”，按现代国别与行政区划进行归类。</p>
-        <p>城址的参考，指该城址轮廓复原和基本信息所参照的地图文献或文本文献。相关的地图文献、遗址平面图可在主页下方的网盘资料链接中下载。文本参考文献电子版缺失较多，多数需要自行查找下载。</p>
-    </div>
+            <div class="home-section-content">
+                <article class="home-release" aria-labelledby="release-title">
+                    <div class="home-release-heading">
+                        <h3 id="release-title"><time datetime="2026-10-28">2026.10.28</time></h3>
+                        <code>v20261028</code>
+                    </div>
+                    <div class="home-content-updates">
+                        <h4>内容更新</h4>
+                        <ol>
+                            <li>补充漠北历代城址、蒙古中部地区壕墙（采用B站67501015整理提供的数据）。</li>
+                            <li>补充粤、豫、鄂部分地区市镇、圩墙、村堡、山寨等（采用_Aleksibob整理提供的数据）。</li>
+                            <li>新增当雄县境内一些未知的疑似古城，以及部分西藏其它地区的古城古堡。</li>
+                            <li>补充黑龙江东部、朝鲜东北部、滨海边疆区的渤海、东夏城址（无影TEL查找资料）。</li>
+                            <li>补充七星河流域汉魏城址（李慧查找资料）。</li>
+                            <li>补充民国时期归绥、察哈尔部分新设治所、城镇城墙及防御工事。</li>
+                            <li>现代新建古城设置错位复建、文旅古城、影视基地、宫苑寺刹四个分类。</li>
+                            <li>新增贵德县南部大量不明年代设防聚落。</li>
+                            <li>新增俄罗斯阿尔泰地区部分设防聚落和石墙防线。</li>
+                            <li>补充南亚部分城址。</li>
+                        </ol>
+                    </div>
+                    <div class="home-corrections">
+                        <h4>重大误差修正</h4>
+                        <ul>
+                            <li>峡江县（清治所）</li>
+                            <li>（沙虎）（渤海-明）</li>
+                            <li>万载县（清治所）</li>
+                            <li>瑞昌县（清治所）</li>
+                            <li>御谋城（背城）（宋）</li>
+                            <li>广州满城（清）</li>
+                            <li>日照县（清治所）</li>
+                            <li>兴国州（清治所）</li>
+                            <li>南安府 大庾县（清治所）</li>
+                        </ul>
+                    </div>
+                </article>
+                <details class="home-system-updates" open>
+                    <summary>系统更新 <span class="home-system-expand" aria-hidden="true">+</span><span class="home-system-collapse" aria-hidden="true">−</span></summary>
+                    <h4><time datetime="2026-11-19">2026.11.19</time></h4>
+                    <ol>
+                        <li>UI 优化</li>
+                        <li>性能优化</li>
+                    </ol>
+                    <h4>2026.10.28</h4>
+                    <ol>
+                        <li>增加搜索栏，可搜索地名和要素名，适配常见格式的经纬度搜索。</li>
+                        <li>增加测距、测面积及测量线面的kml下载功能，要素自动显示长度、面积、中心坐标（面积仅限闭合要素）。</li>
+                        <li>侧栏增加起始年代分类以及轮廓未定点位的选项。</li>
+                        <li>更改“关灯”模式透明度。</li>
+                        <li>鼠标移至要素时高亮显示。</li>
+                        <li>增加Esri底图。</li>
+                        <li>增加定位功能。</li>
+                        <li>移动端适配。</li>
+                    </ol>
+                </details>
+            </div>
+        </section>
 
-    <div class="update-box">
-        <h3>本期更新 · 2026.10.28</h3>
-        
-        <div class="update-subtitle">系统更新</div>
-        <div class="update-content">
-            <pre class="update-text">
-1. 增加搜索栏，可搜索地名和要素名，适配常见格式的经纬度搜索。
-2. 增加测距、测面积及测量线面的kml下载功能，要素自动显示长度、面积、中心坐标（面积仅限闭合要素）。
-3. 侧栏增加起始年代分类以及轮廓未定点位的选项。
-4. 更改“关灯”模式透明度。
-5. 鼠标移至要素时高亮显示。
-6. 增加Esri底图。
-7. 增加定位功能。
-8. 移动端适配。
-            </pre>
-        </div>
+        <section id="references" class="home-section" aria-labelledby="references-title">
+            <header class="home-section-heading">
+                <h2 id="references-title">参考资料</h2>
+                <p>城址轮廓复原所用的地图、地方志与研究资料。</p>
+            </header>
 
-        <div class="update-subtitle" style="margin-top: 16px;">内容更新</div>
-        <div class="update-content">
-            <pre class="update-text">
-1.补充漠北历代城址、蒙古中部地区壕墙（采用B站67501015整理提供的数据）。
-2.补充粤、豫、鄂部分地区市镇、圩墙、村堡、山寨等（采用_Aleksibob整理提供的数据）。
-3.新增当雄县境内一些未知的疑似古城，以及部分西藏其它地区的古城古堡。
-4.补充黑龙江东部、朝鲜东北部、滨海边疆区的渤海、东夏城址（无影TEL查找资料）。
-5.补充七星河流域汉魏城址（李慧查找资料）。
-6.补充民国时期归绥、察哈尔部分新设治所、城镇城墙及防御工事。
-7.现代新建古城设置错位复建、文旅古城、影视基地、宫苑寺刹四个分类。
-8.新增贵德县南部大量不明年代设防聚落。
-9.新增俄罗斯阿尔泰地区部分设防聚落和石墙防线。
-10.补充南亚部分城址。
-
-重大误差修正：
-峡江县（清治所），（沙虎）（渤海-明），万载县（清治所），瑞昌县（清治所），御谋城（背城）（宋），广州满城（清），日照县（清治所），兴国州（清治所），南安府 大庾县（清治所）
-            </pre>
-        </div>
-    </div>
-
-    <div class="download-box">
-        <h3>参考资料下载</h3>
-        <ul class="download-list">
-            <li>1. 城址参考旧地图、旧卫星图、复原平面图等。链接：<a href="https://pan.baidu.com/s/1mhYDC5NKuzzkaRMow53UQg?pwd=r7h9" target="_blank">https://pan.baidu.com/s/1mhYDC5NKuzzkaRMow53UQg?pwd=r7h9</a>，提取码：<span class="code">r7h9</span></li>
-            <li>2. 部分参考书籍、论文。链接：<a href="https://pan.baidu.com/s/15tAQ6dZIi79ofxntUMO_tQ?pwd=wom7" target="_blank">https://pan.baidu.com/s/15tAQ6dZIi79ofxntUMO_tQ?pwd=wom7</a>，提取码：<span class="code">wom7</span></li>
-            <li>3. 民国军用地图。链接：<a href="https://pan.baidu.com/s/1B2YKeS4Tsn8oVkj_kREeaw?pwd=uurg" target="_blank">https://pan.baidu.com/s/1B2YKeS4Tsn8oVkj_kREeaw?pwd=uurg</a>，提取码：<span class="code">uurg</span></li>
-            <li>4. 地方志资料。链接：<a href="https://pan.baidu.com/s/1iBNhhOfjo5H3KvqLO4Y2PA?pwd=m9om" target="_blank">https://pan.baidu.com/s/1iBNhhOfjo5H3KvqLO4Y2PA?pwd=m9om</a>，提取码：<span class="code">m9om</span></li>
-        </ul>
-    </div>
-
-    <!-- ===== 新增：外部链接模块 ===== -->
-    <div class="link-box">
-        <h3>外部链接</h3>
-        <ul class="link-list">
-            <li><span>知乎主页：</span><a href="https://www.zhihu.com/people/bi-ding-38/columns" target="_blank">https://www.zhihu.com/people/bi-ding-38/columns</a></li>
-            <li><span>日勘军图：</span><a href="https://stanford.maps.arcgis.com/apps/PublicGallery/index.html?appid=1ed3022fc7884690a2f137bce9dfe4fe" target="_blank">https://stanford.maps.arcgis.com/apps/PublicGallery/index.html?appid=1ed3022fc7884690a2f137bce9dfe4fe</a></li>
-            <li><span>朝鲜半岛五万分一：</span><a href="https://earthworks.stanford.edu/catalog/stanford-ng525ny5879" target="_blank">https://earthworks.stanford.edu/catalog/stanford-ng525ny5879</a></li>
-            <li><span>吴钩斩月中国城池史：</span><a href="https://www.toutiao.com/c/user/token/MS4wLjABAAAAqPVHnPcZAPEGzXH-_YqjELLyUz6YPkhoK0uQaT1qsExy44lY6k5KYfC4wenzumDn/" target="_blank">https://www.toutiao.com/c/user/token/MS4wLjABAAAAqPVHnPcZAPEGzXH-_YqjELLyUz6YPkhoK0uQaT1qsExy44lY6k5KYfC4wenzumDn/</a></li>
-        </ul>
-    </div>
-
-    <button class="enter-btn" id="enterBtn">进入地图</button>
-    <button class="enter-btn" id="enterBtnSat" style="background:#4a5a6a; font-size:18px; letter-spacing:4px; margin-top:8px;">
-        进入卫星图（Esri）
-    </button>
-    <div class="ornament">— ◇ —</div>
-</div>
-
-<script>
-    function goWithFade(target) {
-        const card = document.getElementById('startCard');
-        card.style.transition = 'opacity 0.5s ease, transform 0.5s cubic-bezier(0.5, 0, 0.5, 1)';
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(-24px) scale(0.96)';
-        setTimeout(() => {
-            window.location.href = target;
-        }, 550);
-    }
-
-    document.getElementById('enterBtn').addEventListener('click', function() {
-        goWithFade('map.html');
-    });
-    document.getElementById('enterBtn').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            this.click();
-        }
-    });
-
-    document.getElementById('enterBtnSat').addEventListener('click', function() {
-        goWithFade('map-satellite.html');
-    });
-    document.getElementById('enterBtnSat').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            this.click();
-        }
-    });
-</script>
+            <div class="home-section-content">
+                <div class="home-reference-columns">
+                    <section class="home-reference-card" aria-labelledby="downloads-title">
+                        <header>
+                            <h3 id="downloads-title">参考资料下载</h3>
+                            <span>百度网盘</span>
+                        </header>
+                        <ul class="home-source-list">
+                            <li>
+                                <a href="https://pan.baidu.com/s/1mhYDC5NKuzzkaRMow53UQg?pwd=r7h9" target="_blank" rel="noopener">城址参考旧地图、旧卫星图和复原平面图</a>
+                                <span class="home-extraction">提取码 <code>r7h9</code></span>
+                            </li>
+                            <li>
+                                <a href="https://pan.baidu.com/s/15tAQ6dZIi79ofxntUMO_tQ?pwd=wom7" target="_blank" rel="noopener">参考书籍与论文</a>
+                                <span class="home-extraction">提取码 <code>wom7</code></span>
+                            </li>
+                            <li>
+                                <a href="https://pan.baidu.com/s/1B2YKeS4Tsn8oVkj_kREeaw?pwd=uurg" target="_blank" rel="noopener">民国军用地图</a>
+                                <span class="home-extraction">提取码 <code>uurg</code></span>
+                            </li>
+                            <li>
+                                <a href="https://pan.baidu.com/s/1iBNhhOfjo5H3KvqLO4Y2PA?pwd=m9om" target="_blank" rel="noopener">地方志</a>
+                                <span class="home-extraction">提取码 <code>m9om</code></span>
+                            </li>
+                        </ul>
+                    </section>
+                    <section class="home-reference-card" aria-labelledby="external-title">
+                        <header>
+                            <h3 id="external-title">外部链接</h3>
+                        </header>
+                        <ul class="home-source-list home-external-links">
+                            <li><a href="https://www.zhihu.com/people/bi-ding-38/columns" target="_blank" rel="noopener">知乎主页</a></li>
+                            <li><a href="https://stanford.maps.arcgis.com/apps/PublicGallery/index.html?appid=1ed3022fc7884690a2f137bce9dfe4fe" target="_blank" rel="noopener">日勘军图</a></li>
+                            <li><a href="https://earthworks.stanford.edu/catalog/stanford-ng525ny5879" target="_blank" rel="noopener">朝鲜半岛五万分一</a></li>
+                            <li><a href="https://www.toutiao.com/c/user/token/MS4wLjABAAAAqPVHnPcZAPEGzXH-_YqjELLyUz6YPkhoK0uQaT1qsExy44lY6k5KYfC4wenzumDn/" target="_blank" rel="noopener">吴钩斩月中国城池史</a></li>
+                        </ul>
+                    </section>
+                </div>
+                <div class="home-credits">
+                    <section class="home-author" aria-labelledby="author-title">
+                        <h3 id="author-title">项目作者</h3>
+                        <p><strong>曲振宇</strong> <a href="https://www.zhihu.com/people/bi-ding-38/columns" target="_blank" rel="noopener">知乎 @吡啶</a></p>
+                    </section>
+                    <section class="home-contributors" aria-labelledby="contributors-title">
+                        <h3 id="contributors-title">贡献者</h3>
+                        <dl>
+                            <div><dt>无影TEL</dt><dd>10-14世纪大陆与朝鲜半岛城址的寻找与资料分享</dd></div>
+                            <div><dt>67501015 <span class="home-credit-affiliation">B站</span></dt><dd>内、外蒙古城址寻找与资料分享</dd></div>
+                            <div><dt>火箭人 <span class="home-credit-affiliation">长城小站</span></dt><dd>数据应用</dd></div>
+                            <div><dt>吴钩斩月 <span class="home-credit-affiliation">今日头条</span></dt><dd>汉代城址、清代府州县</dd></div>
+                            <div><dt>_Aleksibob</dt><dd>明清圩镇堡寨</dd></div>
+                            <div><dt>李慧</dt><dd>哈尔滨周边城址实地探查、资料分享</dd></div>
+                            <div><dt>徐辉 <span class="home-credit-affiliation">古城数字博物馆</span></dt><dd>数据应用、近代城市地图分享</dd></div>
+                            <div><dt>胖昊 <span class="home-credit-affiliation">微信公众号、微博</span></dt><dd>地方志资料提供、纠错</dd></div>
+                            <div><dt>Kümül Öge</dt><dd>草原城址资料分享</dd></div>
+                            <div><dt>刘志佳 <span class="home-credit-affiliation">边疆所</span></dt><dd>新疆清代城址考据、纠错</dd></div>
+                            <div><dt>宋晋 <span class="home-credit-affiliation">山东建筑大学</span></dt><dd>城址相关论文资料查找与分享</dd></div>
+                            <div><dt>张钊坤 <span class="home-credit-affiliation">华南理工大学</span></dt><dd>军用地图资料分享</dd></div>
+                        </dl>
+                    </section>
+                </div>
+            </div>
+        </section>
+    </main>
 </body>
 </html>

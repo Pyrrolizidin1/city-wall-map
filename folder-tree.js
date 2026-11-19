@@ -1,23 +1,21 @@
 // KMZ/KML 文件夹目录树：解析 KML 里的 <Folder> 层级，在侧栏渲染可勾选的目录，并控制要素显示。
 // map.html 与 map-satellite.html 共用。
 (function () {
-    function childElements(el, localName) {
-        const out = [];
+    function firstChildNamed(el, localName) {
         for (let c = el.firstElementChild; c; c = c.nextElementSibling) {
-            if (c.localName === localName) out.push(c);
+            if (c.localName === localName) return c;
         }
-        return out;
+        return null;
     }
 
     function folderName(el) {
-        const n = childElements(el, 'name')[0];
-        return n ? n.textContent.trim() : '未命名';
+        return firstChildNamed(el, 'name')?.textContent.trim() ?? '未命名';
     }
 
-    // 解析 KML 文本，返回 { doc, root, nodeById }。
+    // 接收 KML 文本或已解析的 XML 文档，返回 { doc, root, nodeById }。
     // 会给每个 Placemark 写入唯一 id（prefix + 序号），OpenLayers 读出的要素 getId() 即可对应到文件夹节点。
-    function parse(kmlText, prefix) {
-        const doc = new DOMParser().parseFromString(kmlText, 'application/xml');
+    function parse(input, prefix) {
+        const doc = typeof input === 'string' ? new DOMParser().parseFromString(input, 'application/xml') : input;
         if (doc.getElementsByTagNameNS('*', 'parsererror').length) {
             throw new Error('KML XML 格式无效');
         }
@@ -25,7 +23,7 @@
         let seq = 0;
 
         function build(el, parent) {
-            const node = { name: folderName(el), parent: parent, children: [], ids: [], total: 0, on: true, expanded: false, el: null };
+            const node = { name: folderName(el), parent: parent, children: [], ids: [], records: [], total: 0, on: true, expanded: false, el: null };
             for (let c = el.firstElementChild; c; c = c.nextElementSibling) {
                 const ln = c.localName;
                 if (ln === 'Folder' || ln === 'Document') {
@@ -35,6 +33,8 @@
                     const id = prefix + (seq++);
                     c.setAttribute('id', id);
                     node.ids.push(id);
+                    const lineType = firstChildNamed(c, 'description')?.textContent.match(/(?:^|\n)\s*\*\s*线型\s*[：:]\s*(\w+)/i)?.[1]?.toLowerCase();
+                    node.records.push({ id, name: folderName(c), lineType });
                     nodeById.set(id, node);
                 }
             }
@@ -43,7 +43,7 @@
         }
 
         const kml = doc.documentElement;
-        const top = childElements(kml, 'Document')[0] || childElements(kml, 'Folder')[0] || kml;
+        const top = firstChildNamed(kml, 'Document') || firstChildNamed(kml, 'Folder') || kml;
         let root = build(top, null);
         // 跳过只有一层包裹的文件夹（如 Document「城址.kmz」→ Folder「城址」）
         while (root.ids.length === 0 && root.children.length === 1) {
@@ -58,7 +58,10 @@
         let matched = 0;
         features.forEach(function (f) {
             const node = parsed.nodeById.get(f.getId());
-            if (node) { f.__folderNode = node; matched++; }
+            if (node) {
+                f.__folderNode = node;
+                matched++;
+            }
         });
         return matched;
     }
@@ -100,36 +103,42 @@
         const row = document.createElement('div');
         row.className = 'ft-row';
 
-        const hasChildren = node.children.length > 0;
-        const caret = document.createElement(hasChildren ? 'button' : 'span');
+        const records = tree.onFeature ? node.records : [];
+        const hasChildren = node.children.length > 0 || records.length > 0;
+        const caret = document.createElement('span');
         caret.className = 'ft-caret';
         if (hasChildren) {
             row.classList.add('ft-row-expandable');
-            caret.type = 'button';
-            caret.setAttribute('aria-label', '子目录：' + node.name);
+            caret.setAttribute('aria-hidden', 'true');
         }
 
         const cb = document.createElement('input');
         cb.type = 'checkbox';
-        cb.setAttribute('aria-label', node.name);
+        cb.setAttribute('aria-label', node === tree.root ? tree.rootLabel : node.name);
 
-        const label = document.createElement('span');
-        label.className = 'ft-name';
-        label.textContent = node.name;
-        label.title = node.name;
+        const label = document.createElement(hasChildren ? 'button' : 'span');
+        const name = document.createElement('span');
+        const displayName = node === tree.root ? tree.rootLabel : node.name.replace(/^\d+(?:\.\d+)*\./, '');
+        name.className = 'ft-name';
+        name.textContent = displayName;
+        label.className = 'ft-label';
+        label.title = displayName;
+        label.appendChild(name);
+        if (hasChildren) {
+            label.type = 'button';
+            label.appendChild(caret);
+        }
 
         const count = document.createElement('span');
         count.className = 'ft-count';
-        count.textContent = node.total;
+        count.textContent = node.total?.toLocaleString('zh-CN') ?? '';
 
-        row.append(caret, cb, label);
-        if (node.total !== undefined) row.appendChild(count);
+        row.append(cb, label, count);
         li.appendChild(row);
 
         let ul = null;
         function updateCaret() {
-            caret.textContent = node.expanded ? '▼' : '▶';
-            caret.setAttribute('aria-expanded', String(node.expanded));
+            label.setAttribute('aria-expanded', String(node.expanded));
         }
 
         function toggleExpand() {
@@ -139,6 +148,7 @@
                 ul = document.createElement('ul');
                 ul.className = 'ft-list';
                 node.children.forEach(c => ul.appendChild(renderNode(c, tree)));
+                records.forEach(record => ul.appendChild(renderRecord(record, tree)));
                 li.appendChild(ul);
             }
             if (ul) ul.style.display = node.expanded ? '' : 'none';
@@ -146,7 +156,6 @@
         }
         if (hasChildren) {
             updateCaret();
-            caret.addEventListener('click', toggleExpand);
             label.addEventListener('click', toggleExpand);
         }
         cb.addEventListener('change', function () {
@@ -155,21 +164,51 @@
             tree.onChange();
         });
 
-        node.el = { checkbox: cb, li: li, collapse: function () {
-            if (node.expanded) toggleExpand();
+        node.el = { checkbox: cb, li: li, setExpanded: value => {
+            if (node.expanded !== value && hasChildren) toggleExpand();
         } };
         if (node.expanded) { node.expanded = false; toggleExpand(); }
         refresh(node);
         return li;
     }
 
-    // 在 container 中渲染一棵树（根节点默认展开一层）
-    function render(container, root, { expanded, onChange }) {
-        const tree = { root, onChange };
-        root.expanded = !!expanded && root.children.length > 0;
+    function renderRecord(record, tree) {
+        const item = document.createElement('li');
+        item.className = 'ft-record';
+        const name = document.createElement('button');
+        name.type = 'button';
+        name.className = 'ft-record-name';
+        if (record.lineType) name.dataset.lineType = record.lineType;
+        name.textContent = record.name;
+        name.title = record.name;
+        name.addEventListener('click', () => tree.onFeature(record.id));
+        const locate = document.createElement('button');
+        locate.type = 'button';
+        locate.className = 'ft-locate icon-button';
+        locate.dataset.tooltip = '定位到城址';
+        locate.setAttribute('aria-label', '定位到城址：' + record.name);
+        locate.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v4m0 12v4M2 12h4m12 0h4M19 12a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"/></svg>';
+        locate.addEventListener('click', () => tree.onLocate(record.id));
+        item.append(name, locate);
+        tree.records.set(record.id, item);
+        if (record.id === tree.selected) setSelected(item, true);
+        return item;
+    }
+
+    function setSelected(item, selected) {
+        if (!item) return;
+        item.classList.toggle('selected', selected);
+        if (selected) item.firstElementChild.setAttribute('aria-current', 'true');
+        else item.firstElementChild.removeAttribute('aria-current');
+    }
+
+    function render(container, root, { expanded, onChange, rootLabel = root.name, onFeature, onLocate, showRoot = true }) {
+        const tree = { root, rootLabel, onChange, onFeature, onLocate, records: new Map(), selected: null };
+        root.expanded = !showRoot || (!!expanded && (root.children.length > 0 || Boolean(onFeature && root.records.length)));
         const ul = document.createElement('ul');
-        ul.className = 'ft-list ft-root';
-        ul.appendChild(renderNode(root, tree));
+        ul.className = showRoot ? 'ft-list ft-root' : 'ft-list';
+        if (showRoot) ul.appendChild(renderNode(root, tree));
+        else root.children.forEach(child => ul.appendChild(renderNode(child, tree)));
         container.appendChild(ul);
         tree.setAll = function (on) {
             setSubtree(root, on);
@@ -177,7 +216,42 @@
             onChange();
         };
         tree.collapseAll = function () {
-            (function walk(n) { n.children.forEach(walk); if (n.el) n.el.collapse(); })(tree.root);
+            function collapse(node) {
+                node.children.forEach(collapse);
+                if (node.el) node.el.setExpanded(false);
+                else node.expanded = false;
+            }
+            if (showRoot) collapse(root);
+            else root.children.forEach(collapse);
+        };
+        tree.select = function (id) {
+            setSelected(tree.records.get(tree.selected), false);
+            tree.selected = id;
+            setSelected(tree.records.get(id), true);
+        };
+        tree.snapshot = function () {
+            const off = [];
+            const expanded = [];
+            function collect(node, path) {
+                if (!node.on) off.push(path);
+                if (node.expanded) expanded.push(path);
+                node.children.forEach((child, index) => collect(child, path + '/' + index));
+            }
+            collect(root, '');
+            return { off, expanded };
+        };
+        tree.restore = function (saved) {
+            const off = new Set(saved.off);
+            const expanded = new Set(saved.expanded);
+            function apply(node, path) {
+                node.on = !off.has(path);
+                if (node.el) node.el.setExpanded(expanded.has(path));
+                else node.expanded = (!showRoot && node === root) || expanded.has(path);
+                node.children.forEach((child, index) => apply(child, path + '/' + index));
+            }
+            apply(root, '');
+            refresh(root);
+            onChange();
         };
         return tree;
     }
